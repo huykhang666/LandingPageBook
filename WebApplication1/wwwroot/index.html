@@ -1,0 +1,2769 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Huy Khang Shop - Kho Sách Chọn Lọc</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans (Sắc nét, hiện đại, chuẩn UI/UX quốc tế) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome 6.5.1 CDN (Xóa bỏ icon ảnh, dùng icon vector siêu sắc nét) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- SignalR Client CDN cho thông báo Realtime 2 chiều (User & Admin) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#FFF7ED',
+              100: '#FFEDD5',
+              200: '#FED7AA',
+              300: '#FDBA74',
+              400: '#FB923C',
+              500: '#F97316',
+              600: '#EA580C', // Cam đất chuẩn thương mại điện tử sắc nét
+              700: '#C2410C',
+              800: '#9A3412',
+              900: '#7C2D12',
+            },
+            surface: {
+              50: '#FAF9F6',  // Nền kem ấm tinh tế dịu mắt
+              100: '#F5F3EF',
+              200: '#E8E5DF',
+              300: '#D5D1C8',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Loại bỏ hoàn toàn viền đen mặc định của trình duyệt Cốc Cốc / Chrome khi focus nút */
+    *:focus, *:focus-visible {
+      outline: none !important;
+      box-shadow: none !important;
+    }
+    button, a {
+      outline: none !important;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:focus, button:focus-visible, a:focus, a:focus-visible {
+      outline: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Gradient nền dịu mắt */
+    .bg-soft-gradient {
+      background: radial-gradient(circle at 50% 0%, rgba(234, 88, 12, 0.08) 0%, rgba(250, 249, 246, 0) 70%);
+    }
+
+    /* Hiệu ứng sách 3D thực tế tinh tế */
+    .book-showcase-3d {
+      box-shadow: 
+        -14px 20px 32px -8px rgba(0, 0, 0, 0.25),
+        0 6px 16px -4px rgba(0, 0, 0, 0.08),
+        0 0 0 1px rgba(0, 0, 0, 0.06);
+      border-radius: 4px 14px 14px 4px;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+    }
+    .book-showcase-3d:hover {
+      transform: translateY(-6px) rotate(-0.5deg);
+      box-shadow: 
+        -18px 26px 42px -8px rgba(0, 0, 0, 0.32),
+        0 10px 24px -4px rgba(0, 0, 0, 0.12);
+    }
+    .book-spine-line {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 14px;
+      background: linear-gradient(to right, rgba(0,0,0,0.25) 0%, rgba(255,255,255,0.18) 35%, rgba(0,0,0,0.06) 75%, transparent 100%);
+      border-radius: 4px 0 0 4px;
+      pointer-events: none;
+    }
+
+    /* Hiệu ứng lướt mượt & animation */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-fade-in-up {
+      animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Toast notification animation */
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    .toast-animate {
+      animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="font-sans bg-surface-50 text-slate-800 text-base antialiased selection:bg-brand-500 selection:text-white flex flex-col min-h-screen">
+
+  <!-- ==================== TOAST NOTIFICATION CONTAINER (REALTIME 2 CHIỀU) ==================== -->
+  <div id="toastContainer" class="fixed top-20 right-4 z-50 space-y-3 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- ==================== TOP BAR REALTIME NOTIFICATION BANNER ==================== -->
+  <div id="realtimeNoticeBanner" class="hidden bg-gradient-to-r from-brand-600 via-amber-600 to-brand-700 text-white text-sm py-2 px-4 text-center font-semibold shadow-sm transition-all flex items-center justify-center gap-2">
+    <i class="fa-solid fa-bell animate-bounce text-amber-300"></i>
+    <span id="realtimeNoticeText">Thông báo mới từ hệ thống!</span>
+  </div>
+
+  <!-- ==================== HEADER NAVBAR ==================== -->
+  <header class="sticky top-0 z-40 backdrop-blur-md bg-white/95 border-b border-slate-200/90 transition-all shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+      
+      <!-- Brand Logo: Huy Khang Shop -->
+      <a href="javascript:void(0)" onclick="handleLogoClick()" class="flex items-center gap-3 group flex-shrink-0">
+        <span class="w-11 h-11 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md shadow-brand-600/25 group-hover:scale-105 transition-transform text-xl flex-shrink-0">
+          <i class="fa-solid fa-book-bookmark"></i>
+        </span>
+        <div class="flex items-center gap-2">
+          <span class="font-black text-2xl text-slate-900 tracking-tight leading-none whitespace-nowrap">Huy Khang <span class="text-brand-600">Shop</span></span>
+          <span id="adminPortalBadge" class="hidden text-xs font-black uppercase text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-lg tracking-wider whitespace-nowrap">Admin</span>
+        </div>
+      </a>
+
+      <!-- Navigation cho USER / GUEST (Chỉ có Cửa hàng và Landing Page, không có quản trị hay đơn hàng) -->
+      <nav id="userNav" class="hidden md:flex items-center gap-2 text-sm font-bold">
+        <button onclick="switchView('store')" id="navStore" class="nav-btn h-11 px-4 rounded-xl transition-all flex items-center gap-2 text-brand-600 bg-brand-50/80 font-black border border-brand-200/50" data-view="store">
+          <i class="fa-solid fa-store text-sm"></i>
+          <span>Cửa Hàng Sách</span>
+        </button>
+        <button onclick="switchView('landing')" id="navLandingPage" class="nav-btn h-11 px-4 rounded-xl transition-all flex items-center gap-2 text-slate-600 hover:text-brand-600 hover:bg-slate-100/70 border border-transparent" data-view="landing">
+          <i class="fa-solid fa-book-open text-sm"></i>
+          <span>Landing Page Sách</span>
+        </button>
+      </nav>
+
+      <!-- Navigation dành riêng cho ADMIN (Chỉ hiện khi tài khoản Admin đăng nhập) -->
+      <nav id="adminNav" class="items-center gap-2 text-sm font-bold !hidden" style="display: none !important;">
+        <button onclick="switchView('admin')" id="navAdminDashboard" class="nav-btn h-11 px-4 rounded-xl transition-all flex items-center gap-2 text-amber-900 bg-amber-100 border border-amber-300 font-extrabold shadow-sm" data-view="admin">
+          <i class="fa-solid fa-shield-halved text-amber-700"></i>
+          <span>Quản Trị Đơn Hàng & Kho</span>
+        </button>
+        <button onclick="switchView('store')" id="navAdminToStore" class="nav-btn h-11 px-4 rounded-xl transition-all flex items-center gap-2 text-slate-600 hover:text-brand-600 hover:bg-slate-100/70 border border-transparent" data-view="store">
+          <i class="fa-solid fa-store text-sm"></i>
+          <span>Xem Cửa Hàng</span>
+        </button>
+      </nav>
+
+      <!-- Action Buttons (Đồng bộ chuẩn tỉ lệ h-11, bo góc rounded-xl) -->
+      <div class="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
+        
+        <!-- Chuông thông báo Realtime (Chỉ hiển thị khi đã đăng nhập, ẩn hoàn toàn khi là khách) -->
+        <div id="bellWrapper" class="relative hidden">
+          <button onclick="toggleNotificationDropdown()" class="w-11 h-11 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-brand-600 hover:border-brand-300 transition-all flex items-center justify-center relative">
+            <i class="fa-solid fa-bell text-base"></i>
+            <span id="bellBadge" class="hidden absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[11px] font-black rounded-full flex items-center justify-center shadow-md animate-pulse">0</span>
+          </button>
+          
+          <!-- Dropdown lịch sử thông báo -->
+          <div id="notifDropdown" class="hidden absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 py-3 z-50 animate-fade-in-up">
+            <div class="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
+              <span class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-bell text-brand-600"></i>
+                <span>Thông Báo Realtime</span>
+              </span>
+              <button onclick="clearNotifBadge()" class="text-xs text-brand-600 hover:underline font-semibold">Đã xem hết</button>
+            </div>
+            <div id="notifDropdownList" class="max-h-80 overflow-y-auto divide-y divide-slate-100 p-2 space-y-1">
+              <p class="text-center text-xs text-slate-400 py-6">Chưa có thông báo mới nào.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Giỏ Hàng -->
+        <div id="cartWrapper">
+          <button onclick="toggleCartDrawer(true)" class="h-11 px-3.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:border-brand-300 hover:text-brand-600 transition-all flex items-center justify-center gap-2 relative">
+            <i class="fa-solid fa-cart-shopping text-base"></i>
+            <span id="cartCountBadge" class="min-w-[20px] h-5 px-1 rounded-full bg-brand-600 text-white text-[11px] font-black flex items-center justify-center shadow-sm">0</span>
+          </button>
+        </div>
+
+        <!-- Auth State: Guest vs Logged In -->
+        <div id="authContainer">
+          <!-- Khi chưa đăng nhập (Nút Đăng Nhập gọn gàng chuẩn tỉ lệ h-11) -->
+          <button onclick="openAuthModal('login')" id="btnLoginTrigger" class="h-11 inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm px-4 sm:px-5 rounded-xl shadow-md shadow-brand-600/20 transition-all whitespace-nowrap">
+            <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>
+            <span>Đăng Nhập</span>
+          </button>
+
+          <!-- Khi đã đăng nhập (User / Admin) -->
+          <div id="userProfileMenu" class="hidden relative group">
+            <button class="h-11 flex items-center gap-2.5 bg-white hover:bg-slate-50 px-3.5 rounded-xl border border-slate-200 shadow-sm hover:border-brand-300 transition-all">
+              <span id="userAvatarBadge" class="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 font-extrabold text-xs flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-user"></i>
+              </span>
+              <div class="text-left hidden sm:block max-w-[120px]">
+                <p id="userNameDisplay" class="text-xs font-bold text-slate-900 truncate leading-tight">Khách Hàng</p>
+                <p id="userRoleBadge" class="text-[10px] text-brand-600 font-extrabold uppercase leading-none mt-0.5">User</p>
+              </div>
+              <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+            </button>
+            <!-- Dropdown -->
+            <div class="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 hidden group-hover:block transition-all z-50">
+              <div class="px-4 py-2 border-b border-slate-100 text-xs text-slate-400">
+                Vai trò: <strong id="dropRoleLabel" class="text-slate-900 font-bold">User</strong>
+              </div>
+              <div id="userOrdersDropdownLink">
+                <a href="javascript:void(0)" onclick="switchView('orders')" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-brand-600 font-semibold flex items-center gap-2">
+                  <i class="fa-solid fa-clock-rotate-left text-slate-400"></i>
+                  <span>Đơn Hàng Của Tôi</span>
+                </a>
+              </div>
+              <div id="adminDropdownLink" class="hidden">
+                <a href="javascript:void(0)" onclick="switchView('admin')" class="block px-4 py-2.5 text-sm text-amber-700 font-bold hover:bg-amber-50 flex items-center gap-2">
+                  <i class="fa-solid fa-shield-halved text-amber-600"></i>
+                  <span>Bảng Quản Trị Admin</span>
+                </a>
+              </div>
+              <hr class="my-1 border-slate-100">
+              <button onclick="logout()" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                <span>Đăng Xuất</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== VIEW 1: DEDICATED BOOK LANDING PAGE ==================== -->
+  <main id="view-landing" class="view-panel hidden animate-fade-in-up">
+    
+    <!-- Top Context Switcher Bar -->
+    <div class="bg-white border-b border-slate-200 py-3.5 px-4 sm:px-8">
+      <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-sm sm:text-base">
+        <button onclick="switchView('store')" class="inline-flex items-center gap-2 font-bold text-brand-600 hover:text-brand-700 transition-colors">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>Quay lại Kho Sách Chọn Lọc</span>
+        </button>
+        <span class="text-xs sm:text-sm text-slate-600 font-medium bg-slate-100 px-3.5 py-1 rounded-full border border-slate-200">
+          Đang xem Landing Page chi tiết cuốn: <strong id="landingCurrentBookBadge" class="text-slate-900 font-bold">Nhà Giả Kim</strong>
+        </span>
+      </div>
+    </div>
+
+    <!-- SECTION 1: HERO SECTION -->
+    <section class="relative overflow-hidden pt-12 pb-20 md:py-24 bg-soft-gradient">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+          
+          <!-- Cột thông tin sách -->
+          <div class="lg:col-span-7 space-y-6 text-center lg:text-left">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 border border-brand-200 text-brand-800 text-xs sm:text-sm font-bold tracking-wide uppercase">
+              <i class="fa-solid fa-award text-brand-600"></i>
+              <span id="heroBadgeCategory">Kiệt tác phát triển bản thân • Bestseller toàn cầu</span>
+            </div>
+
+            <!-- Tên Sách -->
+            <h1 id="heroBookTitle" class="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-[1.15] tracking-tight">
+              Nhà Giả Kim (The Alchemist)
+            </h1>
+
+            <!-- Trích dẫn / Subtitle -->
+            <p id="heroBookSubtitle" class="text-xl sm:text-2xl text-slate-700 font-medium italic border-l-4 border-brand-500 pl-4 py-1 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              &ldquo;Khi bạn thực sự khao khát một điều gì, toàn thể vũ trụ sẽ hợp lực giúp bạn đạt được điều đó.&rdquo;
+            </p>
+
+            <!-- Tóm tắt -->
+            <p id="heroBookDescription" class="text-base sm:text-lg text-slate-600 leading-relaxed max-w-xl mx-auto lg:mx-0">
+              Tác phẩm kinh điển vượt thời gian đánh thức ước mơ trong mỗi con người. Ấn bản tuyển chọn đặc biệt của Huy Khang Shop, giấy chống mỏi mắt và trình bày tiêu chuẩn quốc tế.
+            </p>
+
+            <!-- Giá & Nút Thao Tác (GỌN GÀNG, THẲNG HÀNG, KHÔNG RỚT DÒNG) -->
+            <div class="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-5">
+              <div class="flex items-baseline gap-3 mr-2">
+                <span id="heroBookPrice" class="text-3xl sm:text-4xl font-black text-brand-600 tracking-tight">79.000đ</span>
+                <span id="heroBookOldPrice" class="text-lg sm:text-xl text-slate-400 line-through">110.000đ</span>
+                <span class="px-2.5 py-1 text-xs font-black text-white bg-red-500 rounded-lg">-28%</span>
+              </div>
+              
+              <div class="flex items-center gap-3 w-full sm:w-auto">
+                <button id="btnHeroQuickBuy" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-base px-7 py-4 rounded-xl shadow-lg shadow-brand-600/25 hover:-translate-y-0.5 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-bolt"></i>
+                  <span>Mua Sách Ngay</span>
+                </button>
+                <button id="btnHeroAddToCart" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2.5 bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-300 hover:border-brand-500 font-bold text-base px-6 py-4 rounded-xl shadow-sm transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-cart-plus text-brand-600"></i>
+                  <span>Thêm Vào Giỏ</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Cam kết dịch vụ -->
+            <div class="pt-4 flex flex-wrap items-center justify-center lg:justify-start gap-6 text-xs sm:text-sm text-slate-600 font-semibold">
+              <span class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-check text-emerald-500 text-base"></i>
+                <span>100% Sách Thật Chính Hãng</span>
+              </span>
+              <span class="flex items-center gap-2">
+                <i class="fa-solid fa-truck-fast text-emerald-500 text-base"></i>
+                <span>Freeship Toàn Quốc</span>
+              </span>
+              <span class="flex items-center gap-2">
+                <i class="fa-solid fa-box-open text-emerald-500 text-base"></i>
+                <span>Đồng Kiểm Trước Khi Nhận</span>
+              </span>
+            </div>
+
+          </div>
+
+          <!-- Cột ảnh bìa sách 3D thực tế, KHÔNG khung viền thô kệch -->
+          <div class="lg:col-span-5 flex justify-center items-center py-6">
+            <div class="relative group select-none">
+              <!-- Ánh sáng hắt nhẹ phía sau làm nổi sách -->
+              <div class="absolute -inset-6 bg-gradient-to-tr from-brand-500/15 via-amber-500/10 to-transparent rounded-3xl blur-2xl opacity-70 group-hover:opacity-100 transition-opacity"></div>
+              
+              <!-- Khung sách 3D sang trọng -->
+              <div class="relative inline-block book-showcase-3d overflow-hidden bg-white">
+                <img id="heroBookImage" src="./images/nha-gia-kim.png?v=3" alt="Bìa sách" class="w-64 sm:w-72 md:w-80 h-auto max-h-[460px] object-cover block" onerror="this.src='./images/nha-gia-kim.png'">
+                <div class="book-spine-line"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: CHI TIẾT TÁC GIẢ -->
+    <section class="py-20 bg-white border-y border-slate-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center max-w-2xl mx-auto mb-14">
+          <span class="px-3.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider">Thông Tin Tác Giả & Tác Phẩm</span>
+          <h2 id="authorSectionHeading" class="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-2.5">Về Bậc Thầy Sáng Tác</h2>
+          <div class="w-16 h-1 bg-brand-600 mx-auto mt-3.5 rounded-full"></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+          
+          <div class="lg:col-span-4 flex flex-col items-center text-center p-8 bg-surface-50 rounded-2xl border border-slate-200">
+            <div class="w-24 h-24 rounded-full bg-brand-100 text-brand-700 border-2 border-white shadow-md flex items-center justify-center text-4xl mb-4">
+              <i class="fa-solid fa-feather-pointed"></i>
+            </div>
+            <h3 id="authorName" class="font-extrabold text-2xl text-slate-900">Paulo Coelho</h3>
+            <p id="authorRole" class="text-sm font-bold text-brand-600 mt-1">Tiểu Thuyết Gia Vĩ Đại Người Brazil</p>
+            <p class="text-xs sm:text-sm text-slate-500 mt-2.5 italic leading-relaxed">Sứ giả hòa bình của Liên Hợp Quốc & tác giả có sách dịch sang nhiều ngôn ngữ nhất kỷ lục Guinness.</p>
+          </div>
+
+          <div class="lg:col-span-8 space-y-6">
+            <h4 class="font-extrabold text-2xl text-slate-900">Hành Trình Kiến Tạo Tri Thức Bất Hủ</h4>
+            <p id="authorBio" class="text-base sm:text-lg text-slate-600 leading-relaxed">
+              Các tác phẩm của tác giả đã chạm tới trái tim của hàng trăm triệu độc giả trên khắp hành tinh. Lối viết giản dị nhưng thấm đẫm chất thơ và triết lý nhân sinh sâu sắc, mở ra góc nhìn mới về cuộc sống, khát vọng và sự khai sáng nội tâm.
+            </p>
+
+            <!-- 3 Highlights Stats -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-3">
+              <div class="p-5 rounded-2xl bg-surface-50 border border-slate-200 text-center">
+                <p class="text-3xl font-black text-brand-600">150M+</p>
+                <p class="text-sm font-bold text-slate-800 mt-1">Bản Sách Đã Bán</p>
+                <p class="text-xs text-slate-400 mt-0.5">Trên 160 quốc gia</p>
+              </div>
+              <div class="p-5 rounded-2xl bg-surface-50 border border-slate-200 text-center">
+                <p class="text-3xl font-black text-brand-600">80+</p>
+                <p class="text-sm font-bold text-slate-800 mt-1">Ngôn Ngữ Dịch</p>
+                <p class="text-xs text-slate-400 mt-0.5">Kỷ lục Guinness thế giới</p>
+              </div>
+              <div class="p-5 rounded-2xl bg-surface-50 border border-slate-200 text-center">
+                <p class="text-3xl font-black text-brand-600">Top 1</p>
+                <p class="text-sm font-bold text-slate-800 mt-1">Bestseller Toàn Cầu</p>
+                <p class="text-xs text-slate-400 mt-0.5">Hơn 400 tuần liên tiếp</p>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 3: BÁO CHÍ & REVIEW NỘI DUNG CHÍNH -->
+    <section class="py-20 bg-surface-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center max-w-2xl mx-auto mb-14">
+          <span class="px-3.5 py-1 rounded-full bg-brand-100 text-brand-800 text-xs font-bold uppercase tracking-wider">Đánh Giá Báo Chí Quốc Tế</span>
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-2.5">Góc Nhìn Của Giới Phê Bình & Bài Học Cốt Lõi</h2>
+          <div class="w-16 h-1 bg-brand-600 mx-auto mt-3.5 rounded-full"></div>
+        </div>
+
+        <!-- Press Quotes Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          
+          <div class="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm space-y-3.5">
+            <div class="text-brand-600 font-bold text-sm tracking-wider uppercase flex items-center gap-2">
+              <i class="fa-solid fa-newspaper"></i>
+              <span>THE NEW YORK TIMES</span>
+            </div>
+            <p class="text-base text-slate-700 italic leading-relaxed">
+              &ldquo;Một câu chuyện ngụ ngôn tuyệt diệu lay động hàng triệu con tim, nhắc nhở chúng ta rằng hạnh phúc đích thực luôn nằm ở chính hành trình đi tìm giấc mơ.&rdquo;
+            </p>
+            <p class="text-xs font-bold text-slate-400 border-t border-slate-100 pt-3">Chuyên mục Book Review</p>
+          </div>
+
+          <div class="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm space-y-3.5">
+            <div class="text-brand-600 font-bold text-sm tracking-wider uppercase flex items-center gap-2">
+              <i class="fa-solid fa-newspaper"></i>
+              <span>THE GUARDIAN</span>
+            </div>
+            <p class="text-base text-slate-700 italic leading-relaxed">
+              &ldquo;Cuốn sách mang vẻ đẹp mộc mạc nhưng hàm chứa sức mạnh tinh thần phi thường, xứng đáng là cẩm nang gối đầu giường của mọi thế hệ thanh niên.&rdquo;
+            </p>
+            <p class="text-xs font-bold text-slate-400 border-t border-slate-100 pt-3">Bình luận văn hóa thế giới</p>
+          </div>
+
+          <div class="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm space-y-3.5">
+            <div class="text-brand-600 font-bold text-sm tracking-wider uppercase flex items-center gap-2">
+              <i class="fa-solid fa-newspaper"></i>
+              <span>FORBES MAGAZINE</span>
+            </div>
+            <p class="text-base text-slate-700 italic leading-relaxed">
+              &ldquo;Những bài học đắt giá về định vị bản thân, vượt qua nỗi sợ hãi thất bại và kiên định với sứ mệnh cuộc đời để chạm tới đỉnh cao vinh quang.&rdquo;
+            </p>
+            <p class="text-xs font-bold text-slate-400 border-t border-slate-100 pt-3">Top sách lãnh đạo khuyên đọc</p>
+          </div>
+
+        </div>
+
+        <!-- 3 Core Lessons Card -->
+        <div class="bg-white p-7 sm:p-10 rounded-3xl border border-slate-200 shadow-sm">
+          <h3 class="text-2xl font-extrabold text-slate-900 mb-6 text-center sm:text-left flex items-center gap-2.5">
+            <i class="fa-solid fa-lightbulb text-amber-500"></i>
+            <span>3 Giá Trị Đắt Giá Nhất Bạn Sẽ Nhận Được</span>
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="coreLessonsContainer">
+            <!-- Dynamic via JS -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 4: FEEDBACK NGƯỜI DÙNG ĐÁNH GIÁ (5 SAO, AVATAR, NỘI DUNG) -->
+    <section class="py-20 bg-white border-y border-slate-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center max-w-2xl mx-auto mb-14">
+          <span class="px-3.5 py-1 rounded-full bg-brand-100 text-brand-800 text-xs font-bold uppercase tracking-wider">Cảm Nhận Độc Giả Thực Tế</span>
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-2.5">Độc Giả Nói Gì Về Cuốn Sách Này?</h2>
+          <div class="w-16 h-1 bg-brand-600 mx-auto mt-3.5 rounded-full"></div>
+          <p class="text-sm sm:text-base text-slate-500 mt-2.5">Điểm đánh giá trung bình: <strong id="landingBookAvgRating" class="text-brand-600 font-black">4.9 / 5.0 <i class="fa-solid fa-star text-amber-400 ml-1"></i></strong> từ hơn 12.000 độc giả toàn quốc.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="testimonialsContainer">
+          <!-- Render via JS for current book -->
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 5: ĐẶT HÀNG NHANH CHO CUỐN SÁCH NÀY -->
+    <section class="py-20 bg-soft-gradient">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <span class="px-4 py-1 rounded-full bg-brand-100 text-brand-800 text-xs sm:text-sm font-bold uppercase tracking-wider">Sở Hữu Ngay Hôm Nay</span>
+        <h2 class="text-3xl sm:text-4xl font-black text-slate-900 mt-3.5 leading-tight">
+          Đầu Tư Vào Tri Thức Là Khoản Đầu Tư Sinh Lời Nhất
+        </h2>
+        <p class="text-base sm:text-lg text-slate-600 mt-3.5 max-w-xl mx-auto">
+          Giao hàng hỏa tốc trong 24h - 48h, đóng gói chống sốc kỹ lưỡng kèm bookmark độc quyền từ <strong>Huy Khang Shop</strong>.
+        </p>
+
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+          <button id="btnSection5Buy" class="inline-flex items-center justify-center gap-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-base px-8 py-4 rounded-xl shadow-lg shadow-brand-600/25 hover:-translate-y-0.5 transition-all whitespace-nowrap">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Đặt Mua Cuốn Sách Này Ngay</span>
+          </button>
+          <button onclick="switchView('store')" class="inline-flex items-center justify-center gap-2.5 bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-300 font-bold text-base px-7 py-4 rounded-xl shadow-sm transition-all whitespace-nowrap">
+            <span>Khám Phá Toàn Bộ Kho Sách (13+ Cuốn)</span>
+            <i class="fa-solid fa-arrow-right text-brand-600"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== VIEW 2: CỬA HÀNG SÁCH (USER STORE) ==================== -->
+  <main id="view-store" class="view-panel block py-10 animate-fade-in-up">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <!-- Top Store Bar: Search & Title -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-6 border-b border-slate-200">
+        <div>
+          <span class="text-xs font-bold text-brand-600 uppercase tracking-wider">Huy Khang Shop Catalog</span>
+          <h2 class="text-3xl sm:text-4xl font-black text-slate-900 mt-1">Kho Sách Chọn Lọc & Phát Triển Bản Thân</h2>
+          <p class="text-sm sm:text-base text-slate-500 mt-1">Bấm vào bất kỳ cuốn sách nào để xem toàn bộ <strong>Landing Page</strong> chi tiết và bài học cốt lõi</p>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="relative w-full md:w-96">
+          <input type="text" id="storeSearchInput" oninput="filterBooks()" placeholder="Tìm tên sách, tác giả, thể loại..." class="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-slate-300 bg-white text-base focus:outline-none focus:border-brand-500 shadow-sm transition-all">
+          <i class="fa-solid fa-magnifying-glass text-slate-400 absolute left-4 top-4 text-base"></i>
+        </div>
+      </div>
+
+      <!-- Store Layout: Sidebar & Book Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Sidebar Filters -->
+        <aside class="lg:col-span-3 space-y-6">
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+            <h3 class="font-bold text-base text-slate-900 uppercase tracking-wider flex items-center gap-2.5">
+              <i class="fa-solid fa-filter text-brand-600"></i>
+              <span>Bộ Lọc Danh Mục</span>
+            </h3>
+            
+            <!-- Category Filter -->
+            <div class="space-y-2">
+              <label class="block text-xs font-bold text-slate-500 uppercase">Thể loại sách</label>
+              <select id="filterCategory" onchange="filterBooks()" class="w-full p-3 rounded-xl border border-slate-300 text-sm bg-slate-50 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500">
+                <option value="all">Tất cả thể loại (13 tác phẩm)</option>
+                <option value="Văn học kinh điển">Văn học kinh điển</option>
+                <option value="Kỹ năng sống">Kỹ năng sống</option>
+                <option value="Kinh tế & Làm giàu">Kinh tế & Làm giàu</option>
+                <option value="Tâm lý & Cuộc sống">Tâm lý & Cuộc sống</option>
+                <option value="Phát triển bản thân">Phát triển bản thân</option>
+                <option value="Kinh tế & Xã hội">Kinh tế & Xã hội</option>
+                <option value="Công nghệ thông tin">Công nghệ & Tương lai</option>
+              </select>
+            </div>
+
+            <!-- Price Range Filter -->
+            <div class="space-y-2">
+              <label class="block text-xs font-bold text-slate-500 uppercase">Khoảng giá</label>
+              <select id="filterPrice" onchange="filterBooks()" class="w-full p-3 rounded-xl border border-slate-300 text-sm bg-slate-50 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500">
+                <option value="all">Tất cả mức giá</option>
+                <option value="under80">Dưới 80.000đ</option>
+                <option value="80to100">80.000đ - 100.000đ</option>
+                <option value="above100">Trên 100.000đ</option>
+              </select>
+            </div>
+
+            <!-- Reset Filter -->
+            <button onclick="resetFilters()" class="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm font-bold text-slate-700 transition-colors flex items-center justify-center gap-2">
+              <i class="fa-solid fa-rotate-left"></i>
+              <span>Đặt lại bộ lọc</span>
+            </button>
+          </div>
+
+          <!-- Banner Mini -->
+          <div class="p-6 rounded-3xl bg-gradient-to-br from-brand-600 via-brand-500 to-amber-600 text-white space-y-2.5 shadow-md">
+            <span class="text-xs font-black uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-md">Chính Sách Đặc Quyền</span>
+            <h4 class="font-extrabold text-lg leading-tight">Miễn Phí Vận Chuyển</h4>
+            <p class="text-xs text-white/90 leading-relaxed">Đóng gói chống sốc cẩn thận và giao tận tay bạn trên toàn quốc.</p>
+          </div>
+        </aside>
+
+        <!-- Book Grid -->
+        <div class="lg:col-span-9">
+          <!-- Loading State -->
+          <div id="booksLoading" class="text-center py-20">
+            <div class="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-base font-bold text-slate-500">Đang tải kho sách phong phú...</p>
+          </div>
+
+          <!-- Grid Container (Responsive chuẩn Phone, iPad, Desktop) -->
+          <div id="booksGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-7">
+            <!-- Render via JavaScript -->
+          </div>
+
+          <!-- Empty State -->
+          <div id="booksEmpty" class="hidden text-center py-20 bg-white rounded-3xl border border-slate-200 shadow-sm">
+            <i class="fa-solid fa-magnifying-glass text-4xl text-slate-300 mb-3 block"></i>
+            <p class="text-xl font-bold text-slate-900">Không tìm thấy cuốn sách nào phù hợp</p>
+            <p class="text-sm text-slate-400 mt-1">Vui lòng thử tìm với từ khóa hoặc danh mục khác</p>
+            <button onclick="resetFilters()" class="mt-4 px-6 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold shadow-md">Xem tất cả sách</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ==================== VIEW 3: ĐƠN HÀNG CỦA TÔI (USER MY ORDERS) ==================== -->
+  <main id="view-orders" class="view-panel hidden py-12 animate-fade-in-up">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      
+      <div class="mb-10 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-bold text-brand-600 uppercase tracking-wider">Huy Khang Shop Tracking</span>
+          <h2 class="text-3xl sm:text-4xl font-black text-slate-900 mt-1">Lịch Sử Đơn Hàng Của Bạn</h2>
+          <p class="text-sm sm:text-base text-slate-500 mt-1">Theo dõi tiến độ duyệt đơn, xuất kho và giao hàng theo thời gian thực</p>
+        </div>
+        <button onclick="loadUserOrders()" class="px-5 py-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm font-bold transition-all shadow-sm flex items-center gap-2">
+          <i class="fa-solid fa-rotate text-brand-600"></i>
+          <span>Làm mới danh sách</span>
+        </button>
+      </div>
+
+      <!-- Danh sách đơn hàng -->
+      <div id="userOrdersList" class="space-y-4">
+        <!-- Render via JavaScript -->
+      </div>
+
+      <!-- Khi chưa có đơn nào -->
+      <div id="userOrdersEmpty" class="hidden bg-white p-14 rounded-3xl border border-slate-200 text-center space-y-4 shadow-sm">
+        <div class="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400 text-3xl">
+          <i class="fa-solid fa-box-open"></i>
+        </div>
+        <h3 class="font-extrabold text-2xl text-slate-900">Bạn chưa có đơn hàng nào</h3>
+        <p class="text-sm text-slate-500 max-w-md mx-auto">Hãy ghé thăm Cửa Hàng Sách để lựa chọn những cuốn sách truyền cảm hứng và đặt hàng ngay nhé!</p>
+        <button onclick="switchView('store')" class="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-brand-600 text-white font-extrabold text-sm hover:bg-brand-700 transition-all shadow-md">
+          <span>Mua Sách Ngay</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ==================== VIEW 4: ADMIN PORTAL DASHBOARD (KHÔNG CẦN XEM LANDING, CHỈ TẬP TRUNG QUẢN LÝ ĐƠN HÀNG CHI TIẾT & KHO SÁCH) ==================== -->
+  <main id="view-admin" class="view-panel hidden py-10 bg-slate-100/70 min-h-[calc(100vh-80px)] animate-fade-in-up">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      
+      <!-- Admin Header Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-7 rounded-3xl border border-slate-200 shadow-sm">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-black uppercase tracking-wider mb-2">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Bảng Điều Khiển Quản Trị Hệ Thống</span>
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-black text-slate-900">Quản Trị Đơn Hàng & Kho Sách - Huy Khang Shop</h2>
+          <p class="text-sm text-slate-500 mt-1">Duyệt đơn hàng, kiểm tra thông tin khách mua chi tiết, xem doanh thu theo ngày và cập nhật giá</p>
+        </div>
+        
+        <div class="flex items-center gap-3">
+          <button onclick="loadAdminDashboard()" class="px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm font-bold text-slate-700 transition-colors flex items-center gap-2">
+            <i class="fa-solid fa-rotate text-slate-500"></i>
+            <span>Cập nhật số liệu</span>
+          </button>
+          <button onclick="openAddBookModal()" class="px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-extrabold transition-all shadow-md flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i>
+            <span>Thêm Sách Mới</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Metrics Cards (Thống kê thực từ Database) -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        
+        <!-- Doanh thu hôm nay -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-calendar-day text-brand-600"></i>
+            <span>Doanh Thu Hôm Nay</span>
+          </p>
+          <p id="statTodayRevenue" class="text-2xl sm:text-3xl font-black text-brand-600">0đ</p>
+          <p class="text-xs text-emerald-600 font-bold flex items-center gap-1">
+            <span>●</span> Đơn hàng chốt trong ngày
+          </p>
+        </div>
+
+        <!-- Tổng Doanh thu -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-sack-dollar text-emerald-600"></i>
+            <span>Tổng Doanh Thu</span>
+          </p>
+          <p id="statTotalRevenue" class="text-2xl sm:text-3xl font-black text-emerald-600">0đ</p>
+          <p class="text-xs text-slate-400 font-medium">Tích lũy hoàn thành</p>
+        </div>
+
+        <!-- Đơn chờ duyệt -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-clock text-amber-500"></i>
+            <span>Đơn Chờ Duyệt</span>
+          </p>
+          <p id="statPendingOrders" class="text-2xl sm:text-3xl font-black text-amber-600">0</p>
+          <p class="text-xs text-amber-600 font-bold">Cần duyệt ngay</p>
+        </div>
+
+        <!-- Tổng số đơn -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-receipt text-slate-500"></i>
+            <span>Tổng Đơn Hàng</span>
+          </p>
+          <p id="statTotalOrders" class="text-2xl sm:text-3xl font-black text-slate-900">0</p>
+          <p class="text-xs text-slate-400 font-medium">Toàn bộ lịch sử</p>
+        </div>
+
+      </div>
+
+      <!-- Realtime Notifications List Box -->
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3.5">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-base">
+              <i class="fa-solid fa-bell"></i>
+            </span>
+            <h3 class="font-extrabold text-lg text-slate-900">Hộp Thông Báo Đơn Hàng Mới (SignalR Realtime)</h3>
+          </div>
+          <span class="text-xs text-slate-400">Tự động đồng bộ ngay khi khách đặt</span>
+        </div>
+        <div id="adminNotificationsList" class="space-y-2.5 max-h-56 overflow-y-auto pr-2">
+          <!-- Render via JS -->
+        </div>
+      </div>
+
+      <!-- Orders Management Table: Quản lý chi tiết từng đơn hàng -->
+      <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-4 gap-2">
+          <div>
+            <h3 class="font-black text-xl sm:text-2xl text-slate-900">Chi Tiết Đơn Hàng & Duyệt Đơn</h3>
+            <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Hiển thị đầy đủ họ tên, SĐT, địa chỉ, sách khách chọn, số lượng và tổng tiền</p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs sm:text-sm">
+            <thead class="bg-slate-50 uppercase text-slate-500 font-bold border-b border-slate-200 text-xs">
+              <tr>
+                <th class="py-3.5 px-3 whitespace-nowrap">Mã Đơn</th>
+                <th class="py-3.5 px-3 whitespace-nowrap">Khách Hàng</th>
+                <th class="py-3.5 px-3 whitespace-nowrap">Số Điện Thoại</th>
+                <th class="py-3.5 px-3 whitespace-nowrap">Địa Chỉ Giao Hàng</th>
+                <th class="py-3.5 px-3 whitespace-nowrap">Sách & Số Lượng</th>
+                <th class="py-3.5 px-3 whitespace-nowrap">Tổng Tiền</th>
+                <th class="py-3.5 px-3 whitespace-nowrap">Thanh Toán</th>
+                <th class="py-3.5 px-3 whitespace-nowrap text-center">Trạng Thái</th>
+                <th class="py-3.5 px-3 whitespace-nowrap text-right">Duyệt Đơn Hàng</th>
+              </tr>
+            </thead>
+            <tbody id="adminOrdersTableBody" class="divide-y divide-slate-100">
+              <!-- Render via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Books Management Table (Admin đổi giá / thêm / xóa) -->
+      <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div>
+            <h3 class="font-black text-xl sm:text-2xl text-slate-900">Quản Lý Kho Sách & Điều Chỉnh Giá</h3>
+            <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Đặc quyền Admin: Thay đổi giá bán, thông tin hoặc xóa sách</p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs sm:text-sm">
+            <thead class="bg-slate-50 uppercase text-slate-500 font-bold border-b border-slate-200 text-xs">
+              <tr>
+                <th class="py-3.5 px-3">ID</th>
+                <th class="py-3.5 px-3">Bìa</th>
+                <th class="py-3.5 px-3">Tên Sách</th>
+                <th class="py-3.5 px-3">Thể Loại</th>
+                <th class="py-3.5 px-3">Giá Hiện Tại</th>
+                <th class="py-3.5 px-3 text-right">Hành Động</th>
+              </tr>
+            </thead>
+            <tbody id="adminBooksTableBody" class="divide-y divide-slate-100">
+              <!-- Render via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ==================== POPUP DIALOG THÔNG BÁO / YÊU CẦU / XÁC NHẬN (THAY THẾ TOÀN BỘ ALERT & CONFIRM) ==================== -->
+  <div id="dialogModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-200 p-7 text-center relative animate-fade-in-up">
+      <button onclick="closeDialogModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-xl font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 transition-all">&times;</button>
+      
+      <div id="dialogIconBox" class="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl shadow-sm">
+        <!-- Render Icon qua JS -->
+      </div>
+      
+      <h3 id="dialogTitle" class="font-black text-xl sm:text-2xl text-slate-900 mb-2 leading-tight">Thông Báo</h3>
+      <p id="dialogMessage" class="text-sm text-slate-600 leading-relaxed mb-6">Nội dung thông báo</p>
+
+      <div id="dialogActions" class="space-y-2.5">
+        <!-- Render nút qua JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL ĐĂNG NHẬP / ĐĂNG KÝ ==================== -->
+  <div id="authModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 p-8 relative animate-fade-in-up">
+      <button onclick="closeAuthModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 text-2xl font-bold">&times;</button>
+      
+      <!-- Modal Tabs -->
+      <div class="flex border-b border-slate-200 mb-6">
+        <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 py-3 text-base font-bold border-b-2 border-brand-600 text-brand-600">Đăng Nhập</button>
+        <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 py-3 text-base font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-900">Đăng Ký</button>
+      </div>
+
+      <!-- Form Đăng Nhập -->
+      <form id="formLogin" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Tên Đăng Nhập</label>
+          <input type="text" id="loginUsername" required placeholder="Nhập tên tài khoản..." class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Mật Khẩu</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+        </div>
+        <button type="submit" id="btnLoginSubmit" class="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md text-base transition-all">
+          Đăng Nhập Ngay
+        </button>
+      </form>
+
+      <!-- Form Đăng Ký -->
+      <form id="formRegister" onsubmit="handleRegister(event)" class="hidden space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Họ Và Tên</label>
+          <input type="text" id="regFullName" required placeholder="Nguyễn Văn A" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Tên Đăng Nhập</label>
+          <input type="text" id="regUsername" required placeholder="vd: huykhang2026" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Mật Khẩu (Ít nhất 6 ký tự)</label>
+          <input type="password" id="regPassword" minlength="6" required placeholder="••••••••" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+        </div>
+        <button type="submit" id="btnRegisterSubmit" class="w-full py-3.5 bg-gradient-to-r from-brand-600 to-amber-600 text-white font-bold rounded-xl shadow-md text-base transition-all">
+          Đăng Ký
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== DRAWER GIỎ HÀNG (CART SLIDEOVER) ==================== -->
+  <div id="cartDrawerBackdrop" onclick="toggleCartDrawer(false)" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity"></div>
+  <div id="cartDrawer" class="fixed top-0 right-0 z-50 h-full w-full max-w-md bg-white shadow-2xl p-6 flex flex-col justify-between transform translate-x-full transition-transform duration-300">
+    <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+      <div class="flex items-center gap-2.5">
+        <i class="fa-solid fa-cart-shopping text-brand-600 text-xl"></i>
+        <h3 class="font-extrabold text-2xl text-slate-900">Giỏ Hàng Của Bạn</h3>
+      </div>
+      <button onclick="toggleCartDrawer(false)" class="text-slate-400 hover:text-slate-900 text-2xl font-bold">&times;</button>
+    </div>
+
+    <!-- Items in Cart -->
+    <div id="cartItemsList" class="flex-1 overflow-y-auto py-4 space-y-3.5">
+      <!-- Render via JS -->
+    </div>
+
+    <!-- Cart Footer & Checkout -->
+    <div class="border-t border-slate-200 pt-4 space-y-4">
+      <div class="flex justify-between items-center text-base">
+        <span class="text-slate-500 font-medium">Tổng thanh toán:</span>
+        <span id="cartDrawerTotal" class="font-black text-2xl text-brand-600">0đ</span>
+      </div>
+      <button onclick="handleCheckoutFromCart()" class="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg shadow-brand-600/25 transition-all text-base flex items-center justify-center gap-2">
+        <span>Tiến Hành Đặt Hàng</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL XÁC NHẬN ĐẶT HÀNG (CHECKOUT) ==================== -->
+  <div id="checkoutModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 p-8 relative animate-fade-in-up">
+      <button onclick="closeCheckoutModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 text-2xl font-bold">&times;</button>
+      <h3 class="font-black text-2xl sm:text-3xl text-slate-900 mb-1">Xác Nhận Đặt Hàng</h3>
+      <p class="text-xs sm:text-sm text-slate-500 mb-6">Vui lòng cung cấp địa chỉ nhận sách và hình thức thanh toán</p>
+
+      <form id="formCheckout" onsubmit="submitCheckoutOrder(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Người Nhận</label>
+          <input type="text" id="orderCustomerName" required placeholder="Họ và tên người nhận" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base focus:ring-2 focus:ring-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Số Điện Thoại</label>
+          <input type="tel" id="orderPhone" required placeholder="Số điện thoại liên hệ giao hàng" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base focus:ring-2 focus:ring-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Địa Chỉ Nhận Hàng</label>
+          <input type="text" id="orderAddress" required placeholder="Địa chỉ chi tiết (Số nhà, đường, phường, quận...)" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base focus:ring-2 focus:ring-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Phương Thức Thanh Toán</label>
+          <select id="orderPaymentMethod" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base font-semibold focus:ring-2 focus:ring-brand-500">
+            <option value="COD">Thanh toán tiền mặt khi nhận hàng (COD)</option>
+            <option value="BANKING">Chuyển khoản ngân hàng</option>
+          </select>
+        </div>
+
+        <div class="p-4 bg-brand-50 rounded-xl border border-brand-200 flex justify-between items-center">
+          <span class="font-bold text-slate-800 text-base">Tổng tiền thanh toán:</span>
+          <span id="checkoutTotalAmount" class="font-black text-2xl text-brand-600">0đ</span>
+        </div>
+
+        <button type="submit" id="btnConfirmOrder" class="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg text-base transition-all flex items-center justify-center gap-2">
+          <span>Xác Nhận Đặt Mua & Gửi Admin</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL THÊM / SỬA GIÁ SÁCH (ADMIN) ==================== -->
+  <div id="bookModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 p-8 relative max-h-[90vh] overflow-y-auto animate-fade-in-up">
+      <button onclick="closeBookModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 text-2xl font-bold">&times;</button>
+      <h3 id="bookModalTitle" class="font-black text-2xl sm:text-3xl text-slate-900 mb-1">Thêm Sách Mới</h3>
+      <p class="text-xs sm:text-sm text-slate-500 mb-6">Đặc quyền Admin: Nhập thông tin và giá tiền sách</p>
+
+      <form id="formAdminBook" onsubmit="handleSaveBook(event)" class="space-y-4">
+        <input type="hidden" id="adminBookId" value="0">
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Tên Sách <span class="text-red-500">*</span></label>
+          <input type="text" id="adminBookName" required placeholder="Tên sách" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base focus:ring-2 focus:ring-brand-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Thể Loại</label>
+            <input type="text" id="adminBookCategory" placeholder="Văn học, Kỹ năng sống..." class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base focus:ring-2 focus:ring-brand-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Giá Tiền (VNĐ) <span class="text-red-500">*</span></label>
+            <input type="number" id="adminBookPrice" required min="0" placeholder="79000" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base font-bold text-brand-600 focus:ring-2 focus:ring-brand-500">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Link Ảnh Bìa</label>
+          <input type="text" id="adminBookImageUrl" placeholder="./images/dac-nhan-tam.png hoặc URL" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base focus:ring-2 focus:ring-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Tác Giả</label>
+          <input type="text" id="adminBookAuthor" placeholder="Dale Carnegie..." class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base focus:ring-2 focus:ring-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-800 uppercase mb-1">Tóm Tắt / Review</label>
+          <textarea id="adminBookReview" rows="3" placeholder="Đôi nét giới thiệu nội dung cuốn sách..." class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm sm:text-base focus:ring-2 focus:ring-brand-500"></textarea>
+        </div>
+
+        <button type="submit" id="btnAdminSaveBook" class="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md text-base transition-all">
+          Lưu Thông Tin Sách
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Nút bấm Cuộn Lên Đầu Trang (Floating Scroll-To-Top Button) -->
+  <button id="btnScrollToTop" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })" class="hidden fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-xl flex items-center justify-center transition-all hover:scale-110">
+    <i class="fa-solid fa-arrow-up text-lg"></i>
+  </button>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="mt-auto bg-slate-900 text-slate-200 pt-14 pb-10 border-t border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-10 pb-10 border-b border-slate-800 text-sm">
+        <div class="md:col-span-5 space-y-3.5">
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white font-black text-xl">
+              <i class="fa-solid fa-book-bookmark"></i>
+            </span>
+            <span class="font-black text-2xl text-white">Huy Khang <span class="text-brand-500">Shop</span></span>
+          </div>
+          <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+            Hệ thống phân phối và giới thiệu sách trực quan, kết nối công nghệ ASP.NET Core .NET 10, PostgreSQL & SignalR đồng bộ đơn hàng hai chiều thời gian thực.
+          </p>
+        </div>
+        <div class="md:col-span-3 space-y-3">
+          <h4 class="font-bold text-white text-base uppercase tracking-wider">Danh Mục Nổi Bật</h4>
+          <ul class="space-y-2 text-slate-400 text-sm sm:text-base">
+            <li><a href="javascript:void(0)" onclick="switchView('store')" class="hover:text-white transition-colors">Văn Học Kinh Điển</a></li>
+            <li><a href="javascript:void(0)" onclick="switchView('store')" class="hover:text-white transition-colors">Kỹ Năng & Lãnh Đạo</a></li>
+            <li><a href="javascript:void(0)" onclick="switchView('store')" class="hover:text-white transition-colors">Kinh Tế & Làm Giàu</a></li>
+            <li><a href="javascript:void(0)" onclick="switchView('store')" class="hover:text-white transition-colors">Phát Triển Bản Thân</a></li>
+          </ul>
+        </div>
+        <div class="md:col-span-4 space-y-3">
+          <h4 class="font-bold text-white text-base uppercase tracking-wider">Cam Kết Dịch Vụ</h4>
+          <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+            Mỗi cuốn sách được đóng gói cẩn thận, bảo hành 100% chính hãng, hỗ trợ đổi trả trong 7 ngày nếu lỗi từ nhà in.
+          </p>
+          <p class="text-xs sm:text-sm text-brand-400 font-bold mt-2">Hotline: 0987.654.321 • Email: contact@huykhangshop.vn</p>
+        </div>
+      </div>
+      <div class="pt-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm text-slate-400">
+        <p>&copy; 2026 Bản quyền thuộc về đồ án C# Lập Trình Trực Quan - <strong>Huy Khang Shop</strong>.</p>
+        <p>Giao diện tối ưu chuẩn UI/UX trực quan, sắc nét & tinh gọn.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== LOGIC JAVASCRIPT FRONTEND TOÀN DIỆN ==================== -->
+  <script>
+    // 0. CHUẨN HÓA ĐƯỜNG DẪN ẢNH (HỖ TRỢ CẢ LIVE SERVER 127.0.0.1:5500 VÀ ASP.NET CORE)
+    function resolveImgUrl(url) {
+      if (!url) return './images/nha-gia-kim.png?v=3';
+      let cleanUrl = url;
+      // Nếu là đường dẫn tương đối hoặc bắt đầu bằng /images
+      if (cleanUrl.startsWith('/images/')) {
+        cleanUrl = '.' + cleanUrl; // Chuyển thành ./images/...
+      } else if (cleanUrl.startsWith('images/')) {
+        cleanUrl = './' + cleanUrl;
+      }
+      if (cleanUrl.includes('nha-gia-kim.png') && !cleanUrl.includes('?')) {
+        cleanUrl += '?v=3';
+      }
+      return cleanUrl;
+    }
+
+    // 1. STATE MANAGEMENT & DỮ LIỆU ĐẦY ĐỦ 13 CUỐN SÁCH
+    let currentUser = null; // { username, fullName, role, token }
+    let booksData = [];
+    let cart = []; // [{ id, name, price, image, quantity }]
+    let activeLandingBook = null;
+    let notificationsList = [];
+
+    // Dữ liệu 13 cuốn sách phong phú (Đường dẫn tương đối ./images/... hoàn toàn chuẩn)
+    const fallbackBooks = [
+      {
+        bookId: 1,
+        bookName: "Nhà Giả Kim (The Alchemist)",
+        title: "Hành Trình Đi Tìm Vận Mệnh & Giấc Mơ Cuộc Đời",
+        subtitle: "Khi bạn thực sự khao khát một điều gì, toàn thể vũ trụ sẽ hợp lực giúp bạn đạt được điều đó.",
+        category: "Văn học kinh điển",
+        price: 79000,
+        imageUrl: "./images/nha-gia-kim.png",
+        detailAuthor: "Paulo Coelho - Tiểu thuyết gia vĩ đại người Brazil, tác giả được dịch ra nhiều thứ tiếng nhất lịch sử Guinness.",
+        titleReview: "Một kiệt tác văn chương lay động tâm can hàng trăm triệu người, thức tỉnh sứ mệnh cá nhân.",
+        coreLessons: [
+          { title: "Lắng Nghe Tiếng Nói Trái Tim", desc: "Trái tim bạn ở đâu thì kho báu của bạn cũng ở đó. Đừng bao giờ chối bỏ ước mơ đích thực." },
+          { title: "Dấu Hiệu Của Vũ Trụ", desc: "Mỗi biến cố, con người bạn gặp đều là một chỉ dấu dẫn bạn tới gần hơn với Giấc Mơ Cá Nhân." },
+          { title: "Sự Can Đảm Dấn Thân", desc: "Nỗi sợ hãi thất bại còn tồi tệ hơn chính sự thất bại. Hãy can đảm bước chân ra sa mạc." }
+        ],
+        testimonials: [
+          { name: "Trần Minh Quân", role: "Doanh nhân & Độc giả thân thiết", avatar: "fa-user-tie", comment: "Cuốn sách đã thay đổi hoàn toàn cách tôi đối diện với những thất bại trong khởi nghiệp. Đọc đi đọc lại 5 lần vẫn thấy thấm thía!" },
+          { name: "Lê Hoàng Yến", role: "Giảng viên Đại học", avatar: "fa-graduation-cap", comment: "Bản in của Huy Khang Shop rất đẹp, giấy ngà đọc không hề mỏi mắt. Một tác phẩm xứng đáng có mặt trong mọi tủ sách gia đình." },
+          { name: "Nguyễn Tuấn Kiệt", role: "Lập trình viên phần mềm", avatar: "fa-laptop-code", comment: "Chất lượng dịch thuật rất trau chuốt, câu từ đầy chất thơ. Nhận sách sau 1 ngày đặt, đóng gói rất chuyên nghiệp!" }
+        ]
+      },
+      {
+        bookId: 2,
+        bookName: "Đắc Nhân Tâm (How to Win Friends)",
+        title: "Nghệ Thuật Thu Phục Lòng Người & Giao Tiếp Đỉnh Cao",
+        subtitle: "Bạn có thể kết bạn nhiều hơn trong hai tháng bằng cách quan tâm đến người khác hơn là trong hai năm cố gắng để người khác quan tâm đến mình.",
+        category: "Kỹ năng sống",
+        price: 86000,
+        imageUrl: "./images/dac-nhan-tam.png",
+        detailAuthor: "Dale Carnegie - Bậc thầy hàng đầu thế giới về nghệ thuật giao tiếp và tâm lý học ứng dụng.",
+        titleReview: "Cuốn sách kinh điển số một mọi thời đại về nghệ thuật đối nhân xử thế và lãnh đạo bản thân.",
+        coreLessons: [
+          { title: "Thành Thật Quan Tâm Đến Người Khác", desc: "Mở rộng tấm lòng lắng nghe chân thành là chìa khóa mở mọi cánh cửa lòng người." },
+          { title: "Ghi Nhớ Và Gọi Tên Họ", desc: "Tên của một người là âm thanh êm dịu và quan trọng nhất đối với họ trong mọi ngôn ngữ." },
+          { title: "Khen Ngợi Thành Thật & Rộng Rãi", desc: "Nuôi dưỡng lòng tự trọng của người khác bằng những lời ghi nhận đúng lúc và sâu sắc." }
+        ],
+        testimonials: [
+          { name: "Phạm Thùy Linh", role: "Quản lý kinh doanh", avatar: "fa-user-tie", comment: "Đắc Nhân Tâm đã giúp tôi thăng tiến lên vị trí quản lý nhờ biết thấu hiểu và tôn trọng nhân sự trong nhóm." },
+          { name: "Vũ Đình Trọng", role: "Kỹ sư xây dựng", avatar: "fa-helmet-safety", comment: "Sách chỉ dạy những điều rất thực tế, không hề lý thuyết suông. Bìa sách cầm chắc tay, giấy rất thơm." },
+          { name: "Mai Thanh Trúc", role: "Sinh viên năm cuối", avatar: "fa-user-graduate", comment: "Giao tiếp của mình tự tin hẳn lên sau khi áp dụng các bài học từ Dale Carnegie. Cực kỳ khuyên đọc!" }
+        ]
+      },
+      {
+        bookId: 3,
+        bookName: "Nghĩ Giàu Và Làm Giàu (Think & Grow Rich)",
+        title: "13 Nguyên Tắc Nghĩ Giàu Làm Giàu Bất Biến",
+        subtitle: "Mọi thứ mà tâm trí con người có thể hình dung và tin tưởng đều có thể trở thành hiện thực.",
+        category: "Kinh tế & Làm giàu",
+        price: 92000,
+        imageUrl: "./images/nghi-giau-lam-giau.png",
+        detailAuthor: "Napoleon Hill - Cố vấn cho hai đời Tổng thống Hoa Kỳ Woodrow Wilson và Franklin D. Roosevelt.",
+        titleReview: "Cẩm nang làm giàu kinh điển làm thay đổi tư duy tài chính của hơn 30 triệu người trên khắp hành tinh.",
+        coreLessons: [
+          { title: "Khát Khao Cháy Bỏng", desc: "Điểm khởi đầu của mọi thành tựu vĩ đại là một mong muốn mãnh liệt, rõ ràng và kiên định." },
+          { title: "Niềm Tin Tuyệt Đối", desc: "Hình dung và tin tưởng vào sự giàu có trước khi bạn thực sự nắm giữ nó trong tay." },
+          { title: "Nhóm Trí Tuệ Siêu Việt", desc: "Kết hợp sức mạnh trí tuệ của những người cùng chí hướng để nhân cấp sức mạnh." }
+        ],
+        testimonials: [
+          { name: "Đặng Quang Huy", role: "Nhà đầu tư tài chính", avatar: "fa-chart-line", comment: "Cuốn sách nền tảng cho bất cứ ai muốn xây dựng tư duy thịnh vượng bền vững. Không có cuốn thứ hai bì kịp." },
+          { name: "Bùi Thị Ngọc", role: "Chủ chuỗi cửa hàng", avatar: "fa-store", comment: "Áp dụng phương pháp tự kỷ ám thị và đặt mục tiêu rõ ràng, doanh số của mình đã tăng gấp đôi trong 6 tháng." },
+          { name: "Trịnh Gia Bảo", role: "Trưởng phòng Marketing", avatar: "fa-bullhorn", comment: "Sách phân tích sâu sắc về 500 người giàu nhất nước Mỹ. Cảm ơn Huy Khang Shop đã tuyển chọn cuốn này!" }
+        ]
+      },
+      {
+        bookId: 4,
+        bookName: "Quẳng Gánh Lo Đi & Vui Sống",
+        title: "Bí Quyết Làm Chủ Tâm Trí & Giải Tỏa Lo Âu",
+        subtitle: "Hãy sống trọn vẹn trong từng ngăn kín của ngày hôm nay, đừng để quá khứ và tương lai đánh cắp hiện tại.",
+        category: "Tâm lý & Cuộc sống",
+        price: 84000,
+        imageUrl: "./images/quang-ganh-lo-di.png",
+        detailAuthor: "Dale Carnegie - Tác giả huyền thoại của phong trào phát triển bản thân.",
+        titleReview: "Liều thuốc an thần tuyệt vời giúp bạn vượt qua áp lực, căng thẳng và tìm lại sự bình yên trong tâm hồn.",
+        coreLessons: [
+          { title: "Chấp Nhận Kịch Bản Xấu Nhất", desc: "Đối diện với tình huống tệ nhất có thể xảy ra, bạn sẽ thấy tâm trí mình nhẹ nhõm để tìm giải pháp." },
+          { title: "Sống Trong Từng Ngày Hiện Tại", desc: "Đóng chặt cánh cửa dẫn về ngày hôm qua và niêm phong cánh cửa ngày mai để tận hưởng hôm nay." },
+          { title: "Bận Rộn Có Mục Đích", desc: "Hành động liên tục là phương pháp hiệu quả nhất để tống khứ mọi nỗi sợ hãi và u sầu." }
+        ],
+        testimonials: [
+          { name: "Lê Cẩm Tú", role: "Nhân viên văn phòng", avatar: "fa-heart", comment: "Mình từng bị mất ngủ vì stress công việc, cuốn sách này đã kéo mình lại với cuộc sống vui tươi và tích cực." },
+          { name: "Nguyễn Hữu Đạt", role: "Chuyên viên phân tích", avatar: "fa-glasses", comment: "Những phương pháp thực tế của Dale Carnegie luôn luôn đúng ở mọi thời đại. Rất đáng đọc!" },
+          { name: "Phan Văn Nam", role: "Kiến trúc sư", avatar: "fa-compass-drafting", comment: "Đọc sách giúp mình nhìn nhận cuộc sống nhẹ nhàng hơn nhiều. Sách đóng gói chắc chắn, giao cực nhanh." }
+        ]
+      },
+      {
+        bookId: 5,
+        bookName: "Ai Lấy Miếng Pho Mát Của Tôi?",
+        title: "Nghệ Thuật Thích Nghi Với Mọi Biến Động Cuộc Đời",
+        subtitle: "Nếu bạn không chịu thay đổi theo thời cuộc, bạn hoàn toàn có thể bị đào thải.",
+        category: "Kỹ năng sống",
+        price: 65000,
+        imageUrl: "./images/ai-lay-mieng-pho-mat.png",
+        detailAuthor: "Spencer Johnson, M.D. - Tiến sĩ y khoa, diễn giả và tác giả bán chạy số 1 New York Times.",
+        titleReview: "Câu chuyện ngụ ngôn nhỏ gọn nhưng làm bừng tỉnh tư duy đổi mới của các tập đoàn hàng đầu thế giới.",
+        coreLessons: [
+          { title: "Biến Động Là Quy Luật Tất Yếu", desc: "Miếng pho mát luôn dịch chuyển, hãy luôn trong tâm thế sẵn sàng đón nhận sự thay đổi." },
+          { title: "Ngửi Pho Mát Thường Xuyên", desc: "Thường xuyên kiểm tra để biết khi nào pho mát bắt đầu cũ và chuẩn bị cho nguồn mới." },
+          { title: "Tận Hưởng Sự Đổi Mới", desc: "Hương vị của miếng pho mát mới luôn ngon lành và ngọt ngào hơn rất nhiều." }
+        ],
+        testimonials: [
+          { name: "Đỗ Minh Đức", role: "Quản lý dự án Agile", avatar: "fa-laptop-code", comment: "Cuốn sách ngắn nhưng sức công phá cực mạnh vào tư duy bảo thủ, rất hợp cho các đội ngũ công nghệ." },
+          { name: "Hoàng Kim Oanh", role: "Trưởng phòng Nhân sự", avatar: "fa-clipboard-user", comment: "Mình đã mua tặng toàn bộ nhân viên trong công ty để thúc đẩy tinh thần linh hoạt và thích ứng." },
+          { name: "Lý Thế Bảo", role: "Khởi nghiệp trẻ", avatar: "fa-rocket", comment: "Đọc chỉ mất 1 tiếng nhưng bài học theo mình suốt cả sự nghiệp kinh doanh." }
+        ]
+      },
+      {
+        bookId: 6,
+        bookName: "Ngày Xưa Có Một Con Bò...",
+        title: "Phá Bỏ Mọi Lời Biện Hộ Để Bứt Phá Giới Hạn",
+        subtitle: "Kẻ thù lớn nhất của sự vĩ đại không phải là sự yếu kém, mà chính là sự tầm thường.",
+        category: "Phát triển bản thân",
+        price: 75000,
+        imageUrl: "./images/ngay-xua-co-mot-con-bo.png",
+        detailAuthor: "Camilo Cruz, Ph.D - Tiến sĩ khoa học, tác giả nổi tiếng quốc tế về nghệ thuật tạo động lực.",
+        titleReview: "Cuốn sách dí dỏm nhưng sắc bén giúp bạn chặt đứt xiềng xích của sự lười biếng và những lời bao biện.",
+        coreLessons: [
+          { title: "Nhận Diện 'Con Bò' Của Bạn", desc: "Con bò tượng trưng cho sự thỏa hiệp với hoàn cảnh và những lời bào chữa cho thất bại." },
+          { title: "Dũng Cảm Loại Bỏ Thói Quen Xấu", desc: "Chỉ khi dám dứt bỏ vùng an toàn, bạn mới giải phóng được tiềm năng vô hạn của chính mình." },
+          { title: "Chịu Trách Nhiệm 100%", desc: "Cuộc đời bạn hôm nay là kết quả của những lựa chọn bạn đã làm, đừng đổ lỗi cho số phận." }
+        ],
+        testimonials: [
+          { name: "Trương Văn Long", role: "Chuyên viên tư vấn", avatar: "fa-bullseye", comment: "Đọc xong thấy nhột vì thấy mình trong đó quá nhiều. Đã quyết định 'giết con bò lười biếng' ngay lập tức!" },
+          { name: "Vũ Bích Ngọc", role: "Freelancer Thiết Kế", avatar: "fa-palette", comment: "Một cú huých cực lớn cho tinh thần hành động của mình. Rất cảm ơn hiệu sách Huy Khang." },
+          { name: "Cao Xuân Hưng", role: "Sinh viên Bách Khoa", avatar: "fa-gears", comment: "Câu chuyện ngụ ngôn cực kỳ thấm thía, đọc rất cuốn và truyền cảm hứng mạnh mẽ." }
+        ]
+      },
+      {
+        bookId: 7,
+        bookName: "Tư Duy Tích Cực Tạo Thành Công",
+        title: "Sức Mạnh Của Thái Độ Sống Tích Cực (PMA)",
+        subtitle: "Thái độ sống tích cực là chìa khóa vàng mở mọi cánh cửa thành công và thịnh vượng.",
+        category: "Phát triển bản thân",
+        price: 89000,
+        imageUrl: "./images/tu-duy-tich-cuc.png",
+        detailAuthor: "Napoleon Hill & W. Clement Stone - Sự kết hợp của hai bậc thầy tư duy xuất sắc nhất thế giới.",
+        titleReview: "Khẳng định rằng bạn chính là người nắm quyền làm chủ hoàn toàn số phận và tương lai của mình.",
+        coreLessons: [
+          { title: "Thái Độ Là Tất Cả", desc: "Bạn không thể kiểm soát thời tiết, nhưng bạn có thể kiểm soát thái độ của mình trước cơn mưa." },
+          { title: "Khai Phóng Động Lực Nội Tại", desc: "Tìm kiếm cơ hội trong mọi nghịch cảnh và biến khó khăn thành bàn đạp vươn lên." },
+          { title: "Hành Động Với Lòng Tin Vững Chắc", desc: "Biến suy nghĩ tích cực thành hành động cụ thể mỗi ngày để gặt hái kết quả phi thường." }
+        ],
+        testimonials: [
+          { name: "Ngô Nhật Linh", role: "Huấn luyện viên cuộc sống", avatar: "fa-star", comment: "Tác phẩm kinh điển gối đầu giường về tâm lý học hành vi và tinh thần lạc quan có cơ sở khoa học." },
+          { name: "Lâm Quốc Cường", role: "Trưởng phòng Tuyển dụng", avatar: "fa-briefcase", comment: "Giúp tôi có thêm nguồn năng lượng tích cực mỗi buổi sáng thức dậy. Rất tuyệt vời!" },
+          { name: "Đinh Thu Trang", role: "Dược sĩ", avatar: "fa-capsules", comment: "Sách dày dặn, in chữ sắc nét, đọc rất thích. Đã mua thêm 2 cuốn tặng bạn bè." }
+        ]
+      },
+      {
+        bookId: 8,
+        bookName: "Chiếc Lexus Và Cây Ô Liu",
+        title: "Bức Tranh Toàn Cảnh Về Kỷ Nguyên Toàn Cầu Hóa",
+        subtitle: "Sự giằng co giữa khát vọng hiện đại hóa công nghệ và gìn giữ bản sắc cội nguồn truyền thống.",
+        category: "Kinh tế & Xã hội",
+        price: 115000,
+        imageUrl: "./images/chiec-lexus-va-cay-o-liu.png",
+        detailAuthor: "Thomas L. Friedman - Cây bút chính luận hàng đầu của The New York Times, 3 lần đoạt giải Pulitzer.",
+        titleReview: "Tác phẩm kinh điển về kinh tế thế giới được giảng dạy tại hầu hết các trường đại học danh tiếng.",
+        coreLessons: [
+          { title: "Hiểu Luật Chơi Toàn Cầu", desc: "Cách dòng vốn, công nghệ và thông tin định hình lại cấu trúc quyền lực thế giới." },
+          { title: "Cân Bằng Giữa Hiện Đại & Bản Sắc", desc: "Chiếc xe Lexus đại diện cho sự thịnh vượng công nghệ, cây ô liu đại diện cho cội nguồn." },
+          { title: "Tầm Nhìn Đa Chiều", desc: "Mở rộng nhãn quan để dự đoán các xu hướng kinh tế vĩ mô trong tương lai." }
+        ],
+        testimonials: [
+          { name: "TS. Nguyễn Khắc Hào", role: "Nhà nghiên cứu kinh tế", avatar: "fa-graduation-cap", comment: "Góc nhìn sâu sắc của Friedman chưa bao giờ lỗi thời. Cuốn sách bắt buộc phải đọc cho người làm chính sách." },
+          { name: "Trịnh Thùy Dương", role: "Chuyên viên xuất nhập khẩu", avatar: "fa-ship", comment: "Rất nhiều dẫn chứng thực tế sống động giúp tôi hiểu rõ hơn về chuỗi cung ứng toàn cầu." },
+          { name: "Võ Thành Nam", role: "Chuyên viên Quan hệ Quốc tế", avatar: "fa-globe", comment: "Sách dịch rất mượt và chuẩn thuật ngữ. Đóng gói rất cẩn thận, cho shop 5 sao!" }
+        ]
+      },
+      {
+        bookId: 9,
+        bookName: "Chiến Thắng Con Quỷ Trong Bạn",
+        title: "Bí Quyết Vượt Qua Nỗi Sợ Hãi Và Đạt Tự Do Đích Thực",
+        subtitle: "Kẻ thù nguy hiểm nhất đang cản trở bạn không ở bên ngoài, mà chính là sự trì hoãn và buông trôi bên trong.",
+        category: "Tâm lý & Cuộc sống",
+        price: 95000,
+        imageUrl: "./images/chien-thang-con-quy.png",
+        detailAuthor: "Napoleon Hill - Bậc thầy về triết lý thành công được thế giới tôn vinh suốt hơn một thế kỷ.",
+        titleReview: "Cuốn sách bí mật từng bị phong ấn suốt hơn 70 năm trước khi được công bố rộng rãi cho công chúng.",
+        coreLessons: [
+          { title: "Thói Quen Buông Trôi (Drifting)", desc: "Căn bệnh nguy hiểm nhất khiến con người chấp nhận để hoàn cảnh cuốn đi mà không hề có định hướng." },
+          { title: "Mục Tiêu Rõ Ràng (Definiteness of Purpose)", desc: "Vũ khí tối thượng đánh bại mọi con quỷ của sự hoài nghi và lười biếng." },
+          { title: "Kỷ Luật Tự Giác Nghiêm Khắc", desc: "Làm chủ cảm xúc, ham muốn và tư tưởng của chính mình để làm chủ vận mệnh." }
+        ],
+        testimonials: [
+          { name: "Lê Văn Thịnh", role: "Quản lý kinh doanh", avatar: "fa-fire", comment: "Cuộc đối thoại kịch tính giữa tác giả và con quỷ đã bóc trần toàn bộ các điểm yếu của con người. Quá xuất sắc!" },
+          { name: "Dương Hoài Nam", role: "Lập trình viên", avatar: "fa-laptop-code", comment: "Đọc cuốn này xong mình đã từ bỏ được thói quen trì hoãn học tập ban đêm. Cảm ơn shop!" },
+          { name: "Đỗ Quỳnh Như", role: "Copywriter", avatar: "fa-pen-nib", comment: "Bản dịch rất lôi cuốn, font chữ to rõ ràng, cầm đọc rất êm tay." }
+        ]
+      },
+      {
+        bookId: 10,
+        bookName: "Con Đường Phía Trước (The Road Ahead)",
+        title: "Tầm Nhìn Công Nghệ Làm Thay Đổi Thế Giới",
+        subtitle: "Chúng ta luôn đánh giá quá cao sự thay đổi trong 2 năm tới và đánh giá quá thấp sự thay đổi trong 10 năm tiếp theo.",
+        category: "Công nghệ thông tin",
+        price: 110000,
+        imageUrl: "./images/con-duong-phia-truoc.png",
+        detailAuthor: "Bill Gates - Nhà đồng sáng lập tập đoàn Microsoft, nhà từ thiện vĩ đại hàng đầu thế giới.",
+        titleReview: "Tầm nhìn tiên phong mang tính lịch sử về kỷ nguyên Internet và sự bùng nổ kỹ thuật số của nhân loại.",
+        coreLessons: [
+          { title: "Đón Đầu Xu Hướng Công Nghệ", desc: "Nhận biết sớm dòng chảy số hóa để không bị tụt lại phía sau trong thời đại mới." },
+          { title: "Sức Mạnh Của Nền Tảng", desc: "Xây dựng hệ sinh thái mở nơi mọi người có thể cùng phát triển và sáng tạo giá trị." },
+          { title: "Không Ngừng Học Hỏi Đổi Mới", desc: "Thành công hôm nay có thể là cái bẫy nếu bạn không liên tục cải tiến và lắng nghe người dùng." }
+        ],
+        testimonials: [
+          { name: "Hồ Hoàng Minh", role: "Kỹ sư AI & Cloud", avatar: "fa-robot", comment: "Đọc lại những dự báo của Bill Gates từ thập niên 90 mới thấy tầm nhìn của ông vĩ đại đến mức nào!" },
+          { name: "Trần Anh Khoa", role: "Startup công nghệ", avatar: "fa-lightbulb", comment: "Cuốn sách cung cấp tư duy chiến lược cực kỳ giá trị cho dân IT và kinh doanh số." },
+          { name: "Bùi Văn Thành", role: "Giảng viên CNTT", avatar: "fa-chalkboard-user", comment: "Sách chất lượng cao, hình ảnh in ấn rõ nét, bản dịch chuẩn xác." }
+        ]
+      },
+      {
+        bookId: 11,
+        bookName: "Dám Nghĩ Lớn (The Magic of Thinking Big)",
+        title: "Phép Màu Của Tư Duy Đột Phá & Mục Tiêu Lớn",
+        subtitle: "Thành công của bạn được đo bằng độ lớn của suy nghĩ, chứ không phải kích thước của xuất phát điểm.",
+        category: "Phát triển bản thân",
+        price: 98000,
+        imageUrl: "./images/dam-nghi-lon.png",
+        detailAuthor: "David J. Schwartz, Ph.D - Giáo sư danh tiếng tại Đại học Bang Georgia, chuyên gia huấn luyện lãnh đạo.",
+        titleReview: "Hướng dẫn thực hành từng bước giúp bạn chữa khỏi căn bệnh tự ti và vươn tới những thành tựu vượt bậc.",
+        coreLessons: [
+          { title: "Chữa Căn Bệnh Bào Chữa", desc: "Người thành công không đổ lỗi cho sức khỏe, tuổi tác, sự thông minh hay may mắn." },
+          { title: "Nâng Tầm Suy Nghĩ", desc: "Hãy tự hỏi 'Một người vĩ đại sẽ xử lý vấn đề này như thế nào?' trước mỗi tình huống." },
+          { title: "Hành Động Ngay Tức Khắc", desc: "Ý tưởng dù hay đến đâu cũng là vô nghĩa nếu không đi kèm với hành động quả quyết." }
+        ],
+        testimonials: [
+          { name: "Vũ Hải Đăng", role: "Giám đốc Phát triển", avatar: "fa-user-tie", comment: "Cuốn sách khai mở tư duy mạnh mẽ nhất mà tôi từng đọc. Rất xứng đáng đầu tư cho bản thân." },
+          { name: "Nguyễn Thị Mai", role: "Kinh doanh online", avatar: "fa-mobile-screen", comment: "Sau khi đọc xong, mình đã dám mở rộng quy mô kinh doanh gấp 3 lần và đạt kết quả ngoài mong đợi." },
+          { name: "Phạm Quốc Bảo", role: "Huấn luyện viên thể thao", avatar: "fa-person-running", comment: "Bài học về sự tự tin và kỷ luật được tác giả trình bày rất thuyết phục." }
+        ]
+      },
+      {
+        bookId: 12,
+        bookName: "Đánh Cắp Ý Tưởng (Steal These Ideas!)",
+        title: "Bí Mật Marketing Và Sáng Tạo Làm Nên Thành Công",
+        subtitle: "Không có ý tưởng nào là hoàn toàn nguyên bản. Mọi công trình vĩ đại đều được xây dựng từ những mảnh ghép trước đó.",
+        category: "Kinh tế & Làm giàu",
+        price: 88000,
+        imageUrl: "./images/danh-cap-y-tuong.png",
+        detailAuthor: "Steve Cone - Chuyên gia marketing hàng đầu của các tập đoàn Citigroup, Fidelity.",
+        titleReview: "Kho tàng các ý tưởng kinh doanh và tiếp thị đắt giá áp dụng ngay trong thực tế.",
+        coreLessons: [
+          { title: "Sưu Tầm Những Ý Tưởng Tốt", desc: "Bạn là tổng hòa của những gì bạn chọn để tiếp nhận vào trí óc mỗi ngày." },
+          { title: "Bắt Chước Để Tìm Thấy Bản Sắc", desc: "Bắt đầu bằng việc mô phỏng thần tượng của bạn, qua đó phát hiện ra phong cách riêng độc nhất." },
+          { title: "Làm Việc Chăm Chỉ & Chia Sẻ", desc: "Cách tốt nhất để được chú ý trong kỷ nguyên Internet là làm việc tốt và chia sẻ quá trình đó." }
+        ],
+        testimonials: [
+          { name: "Đặng Thùy Dung", role: "UI/UX Designer", avatar: "fa-palette", comment: "Một cuốn sách giải phóng hoàn toàn nỗi sợ cạn kiệt ý tưởng của mình khi thiết kế sản phẩm!" },
+          { name: "Nguyễn Tuấn Hải", role: "Content Creator", avatar: "fa-pen-nib", comment: "Trình bày visual cực kỳ bắt mắt, font chữ to đẹp, đọc chỉ 45 phút nhưng mở mang vô cùng." },
+          { name: "Lê Quang Vinh", role: "Nhiếp ảnh gia", avatar: "fa-camera", comment: "Bản in rất sắc sảo, khổ sách nhỏ gọn tiện mang theo khi đi cà phê sáng tạo." }
+        ]
+      },
+      {
+        bookId: 13,
+        bookName: "Dám Chấp Nhận",
+        title: "Nghị Lực Vượt Lên Nghịch Cảnh Cuộc Đời",
+        subtitle: "Nếu cuộc đời cho bạn một quả chanh, hãy biến nó thành một ly nước chanh thơm mát nhất thế giới.",
+        category: "Tâm lý & Cuộc sống",
+        price: 72000,
+        imageUrl: "./images/dam-chap-nhan.png",
+        detailAuthor: "Ernie Carwile - Cây bút truyền cảm hứng sâu sắc của tủ sách Hạt Giống Tâm Hồn.",
+        titleReview: "Gieo vào lòng người đọc niềm tin son sắt vào cuộc sống và sức mạnh của lòng vị tha.",
+        coreLessons: [
+          { title: "Chấp Nhận Thực Tại Để Bứt Phá", desc: "Không oán trách số phận, chấp nhận sự khác biệt của bản thân như một món quà đặc biệt." },
+          { title: "Thái Độ Biết Ơn Cuộc Sống", desc: "Tìm kiếm lý do để biết ơn mỗi sáng thức dậy sẽ trao cho bạn sức mạnh vượt qua mọi giông bão." },
+          { title: "Trở Thành Phép Màu Của Người Khác", desc: "Khi bạn chưa thấy phép màu xảy ra với mình, hãy biến chính mình thành phép màu cho người khác." }
+        ],
+        testimonials: [
+          { name: "Nguyễn Hải Yến", role: "Bác sĩ tâm lý", avatar: "fa-user-doctor", comment: "Nghị lực của tác giả là nguồn cảm hứng vô tận. Cuốn sách truyền năng lượng chữa lành rất lớn." },
+          { name: "Lê Minh Thông", role: "Giáo viên trung học", avatar: "fa-chalkboard-user", comment: "Tôi thường đọc các trích dẫn trong cuốn này cho học sinh nghe trước mỗi kỳ thi quan trọng." },
+          { name: "Đoàn Phương Nam", role: "Tình nguyện viên xã hội", avatar: "fa-hand-holding-heart", comment: "Sách rất đẹp, đọc từng trang mà rưng rưng xúc động. Cảm ơn Huy Khang Shop!" }
+        ]
+      }
+    ];
+
+    // Load từ localStorage khi khởi động
+    function loadState() {
+      const savedUser = localStorage.getItem('app_user');
+      if (savedUser) {
+        try {
+          currentUser = JSON.parse(savedUser);
+        } catch (e) {
+          currentUser = null;
+        }
+      } else {
+        currentUser = null;
+      }
+
+      const savedCart = localStorage.getItem('app_cart');
+      if (savedCart && currentUser && currentUser.token) {
+        try {
+          cart = JSON.parse(savedCart);
+        } catch (e) {
+          cart = [];
+        }
+      } else {
+        cart = [];
+        localStorage.removeItem('app_cart');
+      }
+
+      updateAuthUI();
+      updateCartBadge();
+    }
+
+    // 2. CHUYỂN TAB / VIEW (TỐI ƯU GIAO DIỆN USER VÀ ADMIN)
+    function handleLogoClick() {
+      if (currentUser && currentUser.role === 'Admin') {
+        switchView('admin');
+      } else {
+        switchView('store');
+      }
+    }
+
+    function switchView(viewName) {
+      if (viewName === 'admin') {
+        if (!currentUser || currentUser.role !== 'Admin') {
+          openDialogModal({
+            type: 'warning',
+            title: 'Quyền Quản Trị Viên',
+            message: 'Khu vực này chỉ dành riêng cho tài khoản Quản trị viên (Admin). Vui lòng đăng nhập!',
+            confirmText: 'Đăng Nhập Ngay',
+            cancelText: 'Hủy Bỏ',
+            onConfirm: () => openAuthModal('login')
+          });
+          switchView('store');
+          return;
+        }
+      }
+
+      // Ẩn tất cả view
+      document.querySelectorAll('.view-panel').forEach(el => el.classList.add('hidden'));
+
+      // Cập nhật trạng thái active cho các nút nav
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const targetView = btn.getAttribute('data-view');
+        if (targetView === viewName) {
+          if (viewName === 'admin') {
+            btn.className = 'nav-btn h-11 px-4 rounded-xl transition-all flex items-center gap-2 text-amber-900 bg-amber-100 border border-amber-300 font-extrabold shadow-sm';
+          } else {
+            btn.className = 'nav-btn h-11 px-4 rounded-xl transition-all flex items-center gap-2 text-brand-600 bg-brand-50/80 font-black border border-brand-200/50';
+          }
+        } else {
+          btn.className = 'nav-btn h-11 px-4 rounded-xl transition-all flex items-center gap-2 text-slate-600 hover:text-brand-600 hover:bg-slate-100/70 border border-transparent';
+        }
+      });
+
+      const target = document.getElementById(`view-${viewName}`);
+      if (target) {
+        target.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      if (viewName === 'store') {
+        loadBooksFromApi();
+      } else if (viewName === 'orders') {
+        loadUserOrders();
+      } else if (viewName === 'admin') {
+        loadAdminDashboard();
+      } else if (viewName === 'landing') {
+        if (!activeLandingBook) {
+          showBookLanding(1);
+        }
+      }
+    }
+
+    // Rating Helpers & Diverse Book Star Ratings (4.5 - 5.0)
+    const bookRatingsMap = {
+      1: { rating: 4.9, count: '1.450' },  // Đắc Nhân Tâm
+      2: { rating: 5.0, count: '2.890' },  // Nhà Giả Kim
+      3: { rating: 4.8, count: '980' },    // Tuổi Trẻ Đáng Giá Bao Nhiêu
+      4: { rating: 4.7, count: '640' },    // Tư Duy Nhanh Và Chậm
+      5: { rating: 4.9, count: '1.760' },  // Thói Quen Nguyên Tử
+      6: { rating: 4.9, count: '1.240' },  // Sapiens Lược Sử Loài Người
+      7: { rating: 4.8, count: '1.920' },  // Dạy Con Làm Giàu
+      8: { rating: 4.8, count: '890' },    // Tâm Lý Học Về Tiền
+      9: { rating: 4.6, count: '750' },    // Dám Bị Ghét
+      10: { rating: 4.9, count: '1.380' }, // Nghĩ Giàu Và Làm Giàu
+      11: { rating: 4.5, count: '520' },   // Hiệu Ứng Chim Mồi
+      12: { rating: 4.7, count: '610' },   // Deep Work
+      13: { rating: 4.8, count: '830' }    // Clean Code
+    };
+
+    function getBookRating(bookId) {
+      if (bookRatingsMap[bookId]) return bookRatingsMap[bookId];
+      const fallbackList = [
+        { rating: 4.8, count: '780' },
+        { rating: 4.9, count: '1.150' },
+        { rating: 4.7, count: '620' },
+        { rating: 4.6, count: '510' },
+        { rating: 5.0, count: '2.100' },
+        { rating: 4.5, count: '460' }
+      ];
+      return fallbackList[Math.abs(bookId || 1) % fallbackList.length];
+    }
+
+    function renderStarIcons(rating) {
+      let starsHtml = '';
+      const fullStars = Math.floor(rating);
+      const decimal = rating - fullStars;
+      const hasHalf = decimal >= 0.3 && decimal <= 0.7;
+      const roundUp = decimal > 0.7 ? 1 : 0;
+      const filled = fullStars + roundUp;
+
+      for (let i = 0; i < filled; i++) {
+        starsHtml += '<i class="fa-solid fa-star"></i>';
+      }
+      if (hasHalf) {
+        starsHtml += '<i class="fa-solid fa-star-half-stroke"></i>';
+      }
+      const emptyCount = 5 - filled - (hasHalf ? 1 : 0);
+      for (let i = 0; i < emptyCount; i++) {
+        starsHtml += '<i class="fa-regular fa-star text-slate-300"></i>';
+      }
+      return starsHtml;
+    }
+
+    // 3. CORE INTERACTION: BẤM VÀO THẺ SÁCH SẼ RENDER TOÀN BỘ 5 SECTION LANDING PAGE CHO CUỐN ĐÓ!
+    function showBookLanding(bookId) {
+      const source = (booksData && booksData.length > 0) ? booksData : fallbackBooks;
+      const book = source.find(b => b.bookId === bookId) || source[0];
+      activeLandingBook = book;
+
+      const rich = fallbackBooks.find(f => f.bookId === book.bookId) || fallbackBooks[0];
+
+      // Section 1: Hero
+      document.getElementById('landingCurrentBookBadge').textContent = book.bookName;
+      document.getElementById('heroBadgeCategory').textContent = `${book.category || 'Văn học kinh điển'} • Bestseller Tuyển Chọn`;
+      document.getElementById('heroBookTitle').textContent = book.bookName;
+      document.getElementById('heroBookSubtitle').innerHTML = `&ldquo;${book.subtitle || rich.subtitle}&rdquo;`;
+      document.getElementById('heroBookDescription').textContent = book.titleReview || rich.titleReview;
+      
+      const price = book.price || 79000;
+      const oldPrice = Math.round(price * 1.35);
+      document.getElementById('heroBookPrice').textContent = price.toLocaleString('vi-VN') + 'đ';
+      document.getElementById('heroBookOldPrice').textContent = oldPrice.toLocaleString('vi-VN') + 'đ';
+      document.getElementById('heroBookImage').src = resolveImgUrl(book.imageUrl || rich.imageUrl);
+
+      // Nút Hero Action
+      document.getElementById('btnHeroQuickBuy').onclick = () => {
+        quickBuy(book.bookId, book.bookName, price, resolveImgUrl(book.imageUrl || rich.imageUrl));
+      };
+      document.getElementById('btnHeroAddToCart').onclick = () => {
+        addToCart({ id: book.bookId, name: book.bookName, price: price, image: resolveImgUrl(book.imageUrl || rich.imageUrl) });
+      };
+
+      // Section 2: Tác giả
+      const authorText = book.detailAuthor || rich.detailAuthor;
+      const authorName = authorText.split('-')[0].trim();
+      document.getElementById('authorSectionHeading').textContent = `Về Bậc Thầy Sáng Tác: ${authorName}`;
+      document.getElementById('authorName').textContent = authorName;
+      document.getElementById('authorRole').textContent = `Tác giả cuốn "${book.bookName}"`;
+      document.getElementById('authorBio').textContent = authorText;
+
+      // Section 3: 3 Bài học cốt lõi
+      const lessons = rich.coreLessons || [
+        { title: "Tư Duy Khai Phóng", desc: "Mở rộng góc nhìn và khám phá tiềm năng vô hạn của chính bạn." },
+        { title: "Hành Động Quả Quyết", desc: "Biến ước mơ thành kế hoạch hành động cụ thể mỗi ngày." },
+        { title: "Bình Yên Nội Tâm", desc: "Tìm thấy sự tĩnh tại và hạnh phúc chân thực trong từng khoảnh khắc." }
+      ];
+      document.getElementById('coreLessonsContainer').innerHTML = lessons.map((l, idx) => `
+        <div class="p-6 rounded-2xl bg-surface-50 border border-slate-200 space-y-2.5">
+          <div class="w-9 h-9 rounded-xl bg-brand-100 text-brand-700 font-black flex items-center justify-center text-sm mb-1">0${idx+1}</div>
+          <h4 class="font-extrabold text-lg text-slate-900">${l.title}</h4>
+          <p class="text-sm text-slate-600 leading-relaxed">${l.desc}</p>
+        </div>
+      `).join('');
+
+      // Section 4: Feedback độc giả
+      const reviews = rich.testimonials || fallbackBooks[0].testimonials;
+      const ratingInfo = getBookRating(book.bookId);
+      const avgRatingEl = document.getElementById('landingBookAvgRating');
+      if (avgRatingEl) {
+        avgRatingEl.innerHTML = `${ratingInfo.rating.toFixed(1)} / 5.0 <i class="fa-solid fa-star text-amber-400 ml-1"></i>`;
+      }
+      document.getElementById('testimonialsContainer').innerHTML = reviews.map((r, i) => {
+        const userRating = (i === 1 && ratingInfo.rating < 4.8) ? 4.5 : (i === 2 && ratingInfo.rating < 4.9 ? 4.8 : 5.0);
+        return `
+        <div class="bg-surface-50 p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <div class="flex items-center gap-1.5 text-xs whitespace-nowrap">
+              <div class="flex items-center gap-0.5 text-amber-400">
+                ${renderStarIcons(userRating)}
+              </div>
+              <span class="font-extrabold text-slate-700 ml-0.5">${userRating.toFixed(1)}</span>
+              <span class="text-slate-400 font-medium ml-1">(Đã mua hàng thật)</span>
+            </div>
+            <p class="text-base text-slate-700 italic leading-relaxed">&ldquo;${r.comment}&rdquo;</p>
+          </div>
+          <div class="flex items-center gap-3.5 pt-3.5 border-t border-slate-200">
+            <span class="w-11 h-11 rounded-full bg-brand-100 text-brand-700 text-lg flex items-center justify-center border border-brand-200 shadow-sm">
+              <i class="fa-solid ${r.avatar || 'fa-user'}"></i>
+            </span>
+            <div>
+              <h4 class="font-bold text-base text-slate-900 leading-tight">${r.name}</h4>
+              <p class="text-xs text-brand-600 font-semibold mt-0.5">${r.role}</p>
+            </div>
+          </div>
+        </div>
+      `;
+      }).join('');
+
+      // Section 5: Nút Mua ngay
+      document.getElementById('btnSection5Buy').onclick = () => {
+        quickBuy(book.bookId, book.bookName, price, resolveImgUrl(book.imageUrl || rich.imageUrl));
+      };
+
+      // Chuyển view sang Landing Page
+      switchView('landing');
+    }
+
+    // 4. AUTHENTICATION & PHÂN QUYỀN GIAO DIỆN HEADER (CHUẨN TỈ LỆ USER VÀ ADMIN)
+    function updateAuthUI() {
+      const btnLoginTrigger = document.getElementById('btnLoginTrigger');
+      const userProfileMenu = document.getElementById('userProfileMenu');
+      const userNameDisplay = document.getElementById('userNameDisplay');
+      const userRoleBadge = document.getElementById('userRoleBadge');
+      const dropRoleLabel = document.getElementById('dropRoleLabel');
+      const userNav = document.getElementById('userNav');
+      const adminNav = document.getElementById('adminNav');
+      const adminPortalBadge = document.getElementById('adminPortalBadge');
+      const bellWrapper = document.getElementById('bellWrapper');
+      const adminDropdownLink = document.getElementById('adminDropdownLink');
+      const userOrdersDropdownLink = document.getElementById('userOrdersDropdownLink');
+      const realtimeNoticeBanner = document.getElementById('realtimeNoticeBanner');
+
+      const setVisible = (el, visible, displayType = 'flex') => {
+        if (!el) return;
+        if (visible) {
+          el.classList.remove('hidden', '!hidden');
+          el.style.setProperty('display', displayType, 'important');
+        } else {
+          el.classList.add('!hidden');
+          el.style.setProperty('display', 'none', 'important');
+        }
+      };
+
+      if (currentUser && currentUser.token) {
+        btnLoginTrigger.classList.add('hidden');
+        userProfileMenu.classList.remove('hidden');
+        userNameDisplay.textContent = currentUser.fullName || currentUser.username;
+        setVisible(bellWrapper, true, 'block');
+
+        if (currentUser.role === 'Admin') {
+          // ADMIN: Hiện badge Admin trên logo, dùng riêng thanh Admin Nav
+          setVisible(adminPortalBadge, true, 'inline-block');
+          userRoleBadge.classList.remove('hidden');
+          userRoleBadge.textContent = 'ADMIN';
+          dropRoleLabel.textContent = 'Quản Trị Viên';
+
+          setVisible(userNav, false);
+          setVisible(adminNav, true, 'flex');
+          setVisible(adminDropdownLink, true, 'block');
+          setVisible(userOrdersDropdownLink, false);
+        } else {
+          // USER THƯỜNG: Tuyệt đối không có quản trị kho và đơn hàng trên header
+          setVisible(adminPortalBadge, false);
+          userRoleBadge.classList.add('hidden');
+          userRoleBadge.textContent = '';
+          dropRoleLabel.textContent = 'Khách Hàng';
+
+          setVisible(userNav, true, 'flex');
+          setVisible(adminNav, false);
+          setVisible(adminDropdownLink, false);
+          setVisible(userOrdersDropdownLink, true, 'block');
+          setVisible(realtimeNoticeBanner, false);
+        }
+      } else {
+        // GUEST (Chưa đăng nhập): Không hiện chuông thông báo, không hiện banner, KHÔNG CÓ QUẢN TRỊ
+        btnLoginTrigger.classList.remove('hidden');
+        userProfileMenu.classList.add('hidden');
+        userRoleBadge.classList.add('hidden');
+        userRoleBadge.textContent = '';
+        setVisible(adminPortalBadge, false);
+        setVisible(bellWrapper, false);
+        setVisible(realtimeNoticeBanner, false);
+
+        setVisible(userNav, true, 'flex');
+        setVisible(adminNav, false);
+      }
+    }
+
+    // ==================== QUẢN LÝ POPUP DIALOG THAY THẾ TOÀN BỘ ALERT & CONFIRM ====================
+    let dialogConfirmCallback = null;
+
+    function openDialogModal({ type = 'info', title = 'Thông Báo', message = '', confirmText = 'Đồng Ý', cancelText = '', onConfirm = null }) {
+      const modal = document.getElementById('dialogModal');
+      const iconBox = document.getElementById('dialogIconBox');
+      const titleEl = document.getElementById('dialogTitle');
+      const msgEl = document.getElementById('dialogMessage');
+      const actionsEl = document.getElementById('dialogActions');
+
+      titleEl.textContent = title;
+      msgEl.textContent = message;
+      dialogConfirmCallback = onConfirm;
+
+      // Icon & Màu sắc chuẩn UI/UX
+      if (type === 'auth' || type === 'lock') {
+        iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl bg-brand-50 text-brand-600 border border-brand-200 shadow-sm';
+        iconBox.innerHTML = '<i class="fa-solid fa-lock"></i>';
+      } else if (type === 'danger') {
+        iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl bg-red-50 text-red-600 border border-red-200 shadow-sm';
+        iconBox.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+      } else if (type === 'warning') {
+        iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl bg-amber-50 text-amber-600 border border-amber-200 shadow-sm';
+        iconBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+      } else if (type === 'success') {
+        iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm';
+        iconBox.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+      } else {
+        iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl bg-blue-50 text-blue-600 border border-blue-200 shadow-sm';
+        iconBox.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+      }
+
+      // Nút bấm
+      let buttonsHtml = '';
+      if (onConfirm) {
+        const btnClass = (type === 'danger') 
+          ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20' 
+          : 'bg-brand-600 hover:bg-brand-700 text-white shadow-brand-600/20';
+
+        buttonsHtml += `
+          <button onclick="handleDialogConfirm()" class="w-full py-3.5 ${btnClass} font-bold rounded-xl shadow-md transition-all text-sm flex items-center justify-center gap-2">
+            <span>${confirmText}</span>
+          </button>
+        `;
+        if (cancelText) {
+          buttonsHtml += `
+            <button onclick="closeDialogModal()" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all text-sm">
+              <span>${cancelText}</span>
+            </button>
+          `;
+        }
+      } else {
+        buttonsHtml += `
+          <button onclick="closeDialogModal()" class="w-full py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md transition-all text-sm">
+            <span>${confirmText}</span>
+          </button>
+        `;
+      }
+
+      actionsEl.innerHTML = buttonsHtml;
+      modal.classList.remove('hidden');
+    }
+
+    function closeDialogModal() {
+      document.getElementById('dialogModal').classList.add('hidden');
+      dialogConfirmCallback = null;
+    }
+
+    function handleDialogConfirm() {
+      const cb = dialogConfirmCallback;
+      closeDialogModal();
+      if (typeof cb === 'function') {
+        cb();
+      }
+    }
+
+    // Popup Yêu cầu Đăng nhập chuẩn chỉ (không dùng alert hay thông báo vạch vàng)
+    function promptLoginRequired(customMsg = 'Vui lòng đăng nhập để thao tác các bước tiếp theo!') {
+      openDialogModal({
+        type: 'auth',
+        title: 'Yêu Cầu Đăng Nhập',
+        message: customMsg,
+        confirmText: 'Đăng Nhập Ngay',
+        cancelText: 'Để Sau',
+        onConfirm: () => {
+          openAuthModal('login');
+        }
+      });
+    }
+
+    function openAuthModal(tab = 'login') {
+      document.getElementById('authModal').classList.remove('hidden');
+      switchAuthTab(tab);
+    }
+
+    function closeAuthModal() {
+      document.getElementById('authModal').classList.add('hidden');
+    }
+
+    function switchAuthTab(tab) {
+      const formLogin = document.getElementById('formLogin');
+      const formRegister = document.getElementById('formRegister');
+      const tabLoginBtn = document.getElementById('tabLoginBtn');
+      const tabRegisterBtn = document.getElementById('tabRegisterBtn');
+
+      if (tab === 'login') {
+        formLogin.classList.remove('hidden');
+        formRegister.classList.add('hidden');
+        tabLoginBtn.classList.add('border-brand-600', 'text-brand-600');
+        tabRegisterBtn.classList.remove('border-brand-600', 'text-brand-600');
+      } else {
+        formLogin.classList.add('hidden');
+        formRegister.classList.remove('hidden');
+        tabRegisterBtn.classList.add('border-brand-600', 'text-brand-600');
+        tabLoginBtn.classList.remove('border-brand-600', 'text-brand-600');
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const btn = document.getElementById('btnLoginSubmit');
+
+      btn.disabled = true;
+      btn.textContent = 'Đang kiểm tra...';
+
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const res = await response.json();
+
+        if (response.ok && res.success) {
+          currentUser = res.data;
+          localStorage.setItem('app_user', JSON.stringify(currentUser));
+          updateAuthUI();
+          closeAuthModal();
+
+          if (currentUser.role === 'Admin') {
+            showToast('success', 'Đăng nhập Admin', `Xin chào Quản trị viên ${currentUser.fullName}!`);
+            switchView('admin');
+          } else {
+            showToast('success', 'Đăng nhập thành công', `Chào mừng ${currentUser.fullName} đến với cửa hàng.`);
+            switchView('store');
+          }
+        } else {
+          showToast('error', 'Đăng nhập thất bại', res.message || 'Sai thông tin tài khoản!');
+        }
+      } catch (err) {
+        showToast('error', 'Lỗi kết nối', 'Không thể kết nối đến máy chủ API.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Đăng Nhập Ngay';
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const fullName = document.getElementById('regFullName').value.trim();
+      const username = document.getElementById('regUsername').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const btn = document.getElementById('btnRegisterSubmit');
+
+      btn.disabled = true;
+      btn.textContent = 'Đang khởi tạo...';
+
+      try {
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fullName, username, password })
+        });
+        const res = await response.json();
+
+        if (response.ok && res.success) {
+          currentUser = res.data;
+          localStorage.setItem('app_user', JSON.stringify(currentUser));
+          updateAuthUI();
+          closeAuthModal();
+          showToast('success', 'Đăng ký thành công', 'Chào mừng bạn đến với Huy Khang Shop.');
+          switchView('store');
+        } else {
+          showToast('error', 'Đăng ký thất bại', res.message || 'Lỗi');
+        }
+      } catch (err) {
+        showToast('error', 'Lỗi kết nối', 'Lỗi kết nối máy chủ.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Đăng Ký';
+      }
+    }
+
+    function logout() {
+      currentUser = null;
+      localStorage.removeItem('app_user');
+      cart = [];
+      localStorage.removeItem('app_cart');
+      updateCartBadge();
+      clearNotifBadge();
+      const banner = document.getElementById('realtimeNoticeBanner');
+      if (banner) banner.classList.add('hidden');
+      updateAuthUI();
+      showToast('info', 'Đăng xuất', 'Đã đăng xuất tài khoản.');
+      switchView('store');
+    }
+
+    // 5. CỬA HÀNG SÁCH & RENDER CARD (TỶ LỆ CHUẨN, KHÔNG TRÀN, FONT CHỮ TO RÕ)
+    async function loadBooksFromApi() {
+      const loader = document.getElementById('booksLoading');
+      const grid = document.getElementById('booksGrid');
+      const empty = document.getElementById('booksEmpty');
+
+      loader.classList.remove('hidden');
+      grid.innerHTML = '';
+      empty.classList.add('hidden');
+
+      try {
+        const response = await fetch('/api/books');
+        const res = await response.json();
+
+        if (response.ok && res.success && res.data && res.data.length > 0) {
+          booksData = res.data;
+        } else {
+          booksData = fallbackBooks;
+        }
+      } catch (err) {
+        console.warn('Dùng fallback data phong phú:', err);
+        booksData = fallbackBooks;
+      } finally {
+        loader.classList.add('hidden');
+        renderBooks(booksData);
+      }
+    }
+
+    function renderBooks(books) {
+      const grid = document.getElementById('booksGrid');
+      const empty = document.getElementById('booksEmpty');
+
+      if (!books || books.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      grid.innerHTML = books.map(book => {
+        const discountPrice = book.price;
+        const originalPrice = Math.round(book.price * 1.35);
+        const discountPercent = 26;
+        const authorDisplay = book.detailAuthor ? book.detailAuthor.split('-')[0].trim() : 'Bậc Thầy Tư Duy';
+        const imgPath = resolveImgUrl(book.imageUrl || './images/nha-gia-kim.png');
+        const ratingInfo = getBookRating(book.bookId);
+
+        return `
+          <div class="bg-white rounded-2xl border border-slate-200/90 hover:border-brand-400 hover:shadow-xl transition-all duration-300 p-5 sm:p-6 flex flex-col justify-between group">
+            
+            <div class="cursor-pointer" onclick="showBookLanding(${book.bookId})">
+              <!-- Category Badge & Discount -->
+              <div class="flex items-center justify-between mb-3.5">
+                <span class="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider">
+                  ${book.category || 'Văn học'}
+                </span>
+                <span class="px-2.5 py-1 rounded-md bg-red-500 text-white font-black text-xs">
+                  -${discountPercent}%
+                </span>
+              </div>
+
+              <!-- Book Image Cover: Tỷ lệ chuẩn, không méo, không khung thô -->
+              <div class="h-64 sm:h-72 rounded-xl bg-slate-50 flex items-center justify-center p-3 mb-4 group-hover:scale-[1.03] transition-transform">
+                <img src="${imgPath}" alt="${book.bookName}" class="max-h-full w-auto object-contain drop-shadow-md rounded" onerror="this.src='./images/nha-gia-kim.png'">
+              </div>
+
+              <!-- Titles & Author -->
+              <h4 class="font-extrabold text-lg sm:text-xl text-slate-900 line-clamp-1 group-hover:text-brand-600 transition-colors" title="${book.bookName}">
+                ${book.bookName}
+              </h4>
+              <p class="text-sm text-slate-500 mt-1 line-clamp-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-feather-pointed text-brand-500 text-xs flex-shrink-0"></i>
+                <span class="truncate">${authorDisplay}</span>
+              </p>
+
+              <!-- Star Rating: Căn lề chuẩn mực, thẳng tắp, không rớt dòng, đa dạng 4.5 - 5.0 -->
+              <div class="flex items-center gap-1.5 mt-2.5 text-xs whitespace-nowrap">
+                <div class="flex items-center gap-0.5 text-amber-400 text-xs">
+                  ${renderStarIcons(ratingInfo.rating)}
+                </div>
+                <span class="font-extrabold text-slate-800 ml-0.5">${ratingInfo.rating.toFixed(1)}</span>
+                <span class="text-slate-400 font-medium">(${ratingInfo.count})</span>
+              </div>
+
+              <!-- Price Box -->
+              <div class="mt-4 flex items-baseline gap-2.5">
+                <span class="font-black text-2xl text-brand-600">${discountPrice.toLocaleString('vi-VN')}đ</span>
+                <span class="text-sm text-slate-400 line-through">${originalPrice.toLocaleString('vi-VN')}đ</span>
+              </div>
+            </div>
+
+            <!-- Card Actions: 2 Nút chia đôi tỷ lệ chuẩn, nút Xem & Thêm Giỏ gọn gàng -->
+            <div class="grid grid-cols-2 gap-2 pt-4 mt-3 border-t border-slate-100">
+              <button onclick="showBookLanding(${book.bookId})" class="w-full py-2.5 px-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 hover:text-slate-900 font-bold text-xs sm:text-sm rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap">
+                <i class="fa-regular fa-eye text-xs"></i>
+                <span>Xem</span>
+              </button>
+              <button onclick="addToCart({ id: ${book.bookId}, name: '${book.bookName.replace(/'/g, "\\'")}', price: ${book.price}, image: '${imgPath}' })" class="w-full py-2.5 px-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-md shadow-brand-600/20 flex items-center justify-center gap-1.5 whitespace-nowrap">
+                <i class="fa-solid fa-cart-plus text-xs"></i>
+                <span>Thêm Giỏ</span>
+              </button>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    function filterBooks() {
+      const q = document.getElementById('storeSearchInput').value.toLowerCase().trim();
+      const cat = document.getElementById('filterCategory').value;
+      const price = document.getElementById('filterPrice').value;
+
+      const source = (booksData && booksData.length > 0) ? booksData : fallbackBooks;
+
+      let filtered = source.filter(b => {
+        const matchQ = !q || b.bookName.toLowerCase().includes(q) || (b.category && b.category.toLowerCase().includes(q)) || (b.detailAuthor && b.detailAuthor.toLowerCase().includes(q));
+        const matchCat = cat === 'all' || (b.category && b.category.toLowerCase() === cat.toLowerCase());
+        let matchPrice = true;
+        if (price === 'under80') matchPrice = b.price < 80000;
+        else if (price === '80to100') matchPrice = b.price >= 80000 && b.price <= 100000;
+        else if (price === 'above100') matchPrice = b.price > 100000;
+
+        return matchQ && matchCat && matchPrice;
+      });
+
+      renderBooks(filtered);
+    }
+
+    function resetFilters() {
+      document.getElementById('storeSearchInput').value = '';
+      document.getElementById('filterCategory').value = 'all';
+      document.getElementById('filterPrice').value = 'all';
+      renderBooks(booksData && booksData.length > 0 ? booksData : fallbackBooks);
+    }
+
+    // 6. GIỎ HÀNG (SHOPPING CART)
+    function toggleCartDrawer(open) {
+      if (open && (!currentUser || !currentUser.token)) {
+        promptLoginRequired();
+        return;
+      }
+      const drawer = document.getElementById('cartDrawer');
+      const backdrop = document.getElementById('cartDrawerBackdrop');
+      if (open) {
+        renderCartItems();
+        drawer.classList.remove('translate-x-full');
+        backdrop.classList.remove('hidden');
+      } else {
+        drawer.classList.add('translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    function addToCart(item) {
+      if (!currentUser || !currentUser.token) {
+        promptLoginRequired();
+        return;
+      }
+      const exist = cart.find(i => i.id === item.id);
+      if (exist) {
+        exist.quantity += 1;
+      } else {
+        cart.push({ ...item, quantity: 1 });
+      }
+      localStorage.setItem('app_cart', JSON.stringify(cart));
+      updateCartBadge();
+      showToast('success', 'Giỏ hàng', `Đã thêm "${item.name}" vào giỏ hàng!`);
+    }
+
+    function updateCartBadge() {
+      const count = cart.reduce((sum, i) => sum + i.quantity, 0);
+      document.getElementById('cartCountBadge').textContent = count;
+    }
+
+    function renderCartItems() {
+      const container = document.getElementById('cartItemsList');
+      const totalEl = document.getElementById('cartDrawerTotal');
+
+      if (cart.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-16 text-slate-400 space-y-3">
+            <i class="fa-solid fa-cart-shopping text-4xl text-slate-300"></i>
+            <p class="text-base font-bold text-slate-600">Giỏ hàng của bạn đang trống</p>
+            <p class="text-xs">Hãy chọn mua những cuốn sách bạn yêu thích nhé</p>
+          </div>
+        `;
+        totalEl.textContent = '0đ';
+        return;
+      }
+
+      let total = 0;
+      container.innerHTML = cart.map((item, idx) => {
+        total += item.price * item.quantity;
+        return `
+          <div class="flex items-center gap-3.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
+            <img src="${resolveImgUrl(item.image)}" class="w-14 h-20 object-cover rounded-xl bg-white border border-slate-200 shadow-sm" onerror="this.src='./images/nha-gia-kim.png'">
+            <div class="flex-1 min-w-0">
+              <h5 class="text-sm font-bold text-slate-900 truncate">${item.name}</h5>
+              <p class="text-sm font-black text-brand-600 mt-0.5">${item.price.toLocaleString('vi-VN')}đ</p>
+              <div class="flex items-center gap-2.5 mt-2">
+                <button onclick="changeCartQty(${idx}, -1)" class="w-6 h-6 rounded-lg bg-white border border-slate-300 font-bold text-xs flex items-center justify-center">-</button>
+                <span class="text-sm font-bold">${item.quantity}</span>
+                <button onclick="changeCartQty(${idx}, 1)" class="w-6 h-6 rounded-lg bg-white border border-slate-300 font-bold text-xs flex items-center justify-center">+</button>
+              </div>
+            </div>
+            <button onclick="removeCartItem(${idx})" class="text-red-500 hover:text-red-700 font-bold text-xs p-2">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      totalEl.textContent = total.toLocaleString('vi-VN') + 'đ';
+    }
+
+    function changeCartQty(idx, delta) {
+      cart[idx].quantity += delta;
+      if (cart[idx].quantity <= 0) {
+        cart.splice(idx, 1);
+      }
+      localStorage.setItem('app_cart', JSON.stringify(cart));
+      renderCartItems();
+      updateCartBadge();
+    }
+
+    function removeCartItem(idx) {
+      cart.splice(idx, 1);
+      localStorage.setItem('app_cart', JSON.stringify(cart));
+      renderCartItems();
+      updateCartBadge();
+    }
+
+    function quickBuy(bookId, bookName, price, image) {
+      if (!currentUser || !currentUser.token) {
+        promptLoginRequired();
+        return;
+      }
+      cart = [{ id: bookId, name: bookName, price: price, image: image, quantity: 1 }];
+      localStorage.setItem('app_cart', JSON.stringify(cart));
+      updateCartBadge();
+      handleCheckoutFromCart();
+    }
+
+    // 7. QUY TRÌNH ĐẶT HÀNG (YÊU CẦU ĐĂNG NHẬP)
+    function handleCheckoutFromCart() {
+      if (!currentUser || !currentUser.token) {
+        toggleCartDrawer(false);
+        promptLoginRequired();
+        return;
+      }
+
+      if (cart.length === 0) {
+        openDialogModal({
+          type: 'warning',
+          title: 'Giỏ Hàng Đang Trống',
+          message: 'Vui lòng chọn mua những cuốn sách bạn yêu thích trước khi tiến hành đặt hàng nhé!',
+          confirmText: 'Đã Hiểu'
+        });
+        return;
+      }
+
+      toggleCartDrawer(false);
+      openCheckoutModal();
+    }
+
+    function openCheckoutModal() {
+      const modal = document.getElementById('checkoutModal');
+      const totalAmountEl = document.getElementById('checkoutTotalAmount');
+      const nameInput = document.getElementById('orderCustomerName');
+
+      let total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+      totalAmountEl.textContent = total.toLocaleString('vi-VN') + 'đ';
+
+      if (currentUser) {
+        nameInput.value = currentUser.fullName || currentUser.username;
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeCheckoutModal() {
+      document.getElementById('checkoutModal').classList.add('hidden');
+    }
+
+    async function submitCheckoutOrder(e) {
+      e.preventDefault();
+      const customerName = document.getElementById('orderCustomerName').value.trim();
+      const phone = document.getElementById('orderPhone').value.trim();
+      const address = document.getElementById('orderAddress').value.trim();
+      const paymentMethod = document.getElementById('orderPaymentMethod').value;
+      const btn = document.getElementById('btnConfirmOrder');
+
+      if (!customerName || !phone || !address) {
+        showToast('warning', 'Thiếu thông tin', 'Vui lòng điền đủ họ tên, SĐT và địa chỉ nhận sách!');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Đang đồng bộ đơn hàng về Admin...';
+
+      try {
+        for (const item of cart) {
+          const response = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bookId: item.id,
+              customerName: customerName,
+              phone: phone,
+              address: address,
+              quantity: item.quantity,
+              paymentMethod: paymentMethod
+            })
+          });
+          const res = await response.json();
+          if (!response.ok || !res.success) {
+            throw new Error(res.message || 'Lỗi đặt hàng');
+          }
+        }
+
+        cart = [];
+        localStorage.setItem('app_cart', JSON.stringify(cart));
+        updateCartBadge();
+        closeCheckoutModal();
+
+        showToast('success', 'ĐẶT HÀNG THÀNH CÔNG!', 'Đơn hàng đã được gửi trực tiếp đến Quản trị viên Huy Khang Shop.');
+        
+        localStorage.setItem('user_last_phone', phone);
+        switchView('orders');
+
+      } catch (err) {
+        showToast('error', 'Lỗi khi đặt hàng', err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Xác Nhận Đặt Mua & Gửi Admin';
+      }
+    }
+
+    // 8. THEO DÕI ĐƠN HÀNG CỦA TÔI (MY ORDERS)
+    async function loadUserOrders() {
+      const container = document.getElementById('userOrdersList');
+      const empty = document.getElementById('userOrdersEmpty');
+      const phone = localStorage.getItem('user_last_phone') || '';
+
+      if (!phone) {
+        container.innerHTML = `
+          <div class="bg-white p-8 rounded-3xl border border-slate-200 text-center space-y-4">
+            <i class="fa-solid fa-phone text-3xl text-slate-300"></i>
+            <p class="text-sm font-bold text-slate-700">Nhập số điện thoại bạn đã dùng khi đặt hàng để tra cứu:</p>
+            <div class="flex max-w-sm mx-auto gap-2">
+              <input type="tel" id="inputQueryPhone" placeholder="0987654321" class="flex-1 px-4 py-2.5 border rounded-xl text-sm font-semibold">
+              <button onclick="localStorage.setItem('user_last_phone', document.getElementById('inputQueryPhone').value.trim()); loadUserOrders();" class="px-5 py-2.5 bg-brand-600 text-white rounded-xl text-sm font-bold">Tra cứu</button>
+            </div>
+          </div>
+        `;
+        empty.classList.add('hidden');
+        return;
+      }
+
+      container.innerHTML = '<p class="text-center text-sm text-slate-400 py-10 font-medium">Đang tải đơn hàng của bạn...</p>';
+
+      try {
+        const response = await fetch(`/api/orders/user?phone=${encodeURIComponent(phone)}`);
+        const res = await response.json();
+
+        if (response.ok && res.success && res.data && res.data.length > 0) {
+          empty.classList.add('hidden');
+          container.innerHTML = res.data.map(order => {
+            let statusColor = 'bg-amber-100 text-amber-800';
+            let iconStatus = 'fa-clock';
+            if (order.statusId === 2) { statusColor = 'bg-blue-100 text-blue-800'; iconStatus = 'fa-truck-fast'; }
+            else if (order.statusId === 3) { statusColor = 'bg-emerald-100 text-emerald-800'; iconStatus = 'fa-circle-check'; }
+            else if (order.statusId === 4) { statusColor = 'bg-red-100 text-red-800'; iconStatus = 'fa-circle-xmark'; }
+
+            return `
+              <div class="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-sm space-y-3.5" id="order-card-${order.orderFormId}">
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div>
+                    <span class="text-base font-black text-brand-600">Đơn hàng #${order.orderFormId}</span>
+                    <span class="text-xs text-slate-400 ml-2 font-medium">${new Date(order.orderTime).toLocaleString('vi-VN')}</span>
+                  </div>
+                  <span class="px-3.5 py-1.5 rounded-full text-xs font-bold ${statusColor} flex items-center gap-1.5">
+                    <i class="fa-solid ${iconStatus}"></i>
+                    <span id="order-status-text-${order.orderFormId}">${order.statusName}</span>
+                  </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <p><strong>Cuốn sách:</strong> ${order.bookName} (x${order.quantity})</p>
+                  <p><strong>Tổng tiền:</strong> <span class="font-black text-brand-600">${order.totalPrice.toLocaleString('vi-VN')}đ</span></p>
+                  <p><strong>Người nhận:</strong> ${order.customerName} - ${order.phone}</p>
+                  <p><strong>Thanh toán:</strong> <span class="px-2 py-0.5 rounded bg-slate-100 font-semibold">${order.paymentMethod}</span></p>
+                  <p class="sm:col-span-2"><strong>Địa chỉ:</strong> ${order.address}</p>
+                </div>
+              </div>
+            `;
+          }).join('');
+        } else {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+        }
+      } catch (err) {
+        container.innerHTML = '<p class="text-center text-sm text-red-500 py-10 font-semibold">Lỗi kết nối máy chủ.</p>';
+      }
+    }
+
+    // 9. ĐẶC QUYỀN ADMIN: QUẢN LÝ ĐƠN HÀNG CHI TIẾT & KHO SÁCH
+    async function loadAdminDashboard() {
+      if (!currentUser || currentUser.role !== 'Admin') return;
+
+      const tokenHeader = { 'Authorization': `Bearer ${currentUser.token}` };
+
+      // 1. Load Stats
+      try {
+        const resStats = await fetch('/api/admin/dashboard', { headers: tokenHeader });
+        const dataStats = await resStats.json();
+        if (dataStats.success && dataStats.data) {
+          const s = dataStats.data;
+          document.getElementById('statTodayRevenue').textContent = s.todayRevenue.toLocaleString('vi-VN') + 'đ';
+          document.getElementById('statTotalRevenue').textContent = s.totalRevenue.toLocaleString('vi-VN') + 'đ';
+          document.getElementById('statPendingOrders').textContent = s.pendingOrders;
+          document.getElementById('statTotalOrders').textContent = s.totalOrders;
+        }
+      } catch (err) {
+        console.error('Lỗi load stats admin:', err);
+      }
+
+      // 2. Load Notifications
+      try {
+        const resNotif = await fetch('/api/admin/notifications', { headers: tokenHeader });
+        const dataNotif = await resNotif.json();
+        if (dataNotif.success && dataNotif.data) {
+          const list = document.getElementById('adminNotificationsList');
+          const unreadList = dataNotif.data.filter(n => !n.isRead);
+          const bell = document.getElementById('bellBadge');
+          const dropList = document.getElementById('notifDropdownList');
+          const alreadyViewed = sessionStorage.getItem('notifications_viewed') === 'true';
+
+          if (bell) {
+            if (unreadList.length > 0 && !alreadyViewed) {
+              bell.textContent = unreadList.length;
+              bell.classList.remove('hidden');
+            } else {
+              bell.classList.add('hidden');
+              bell.textContent = '0';
+            }
+          }
+
+          // Đổ dữ liệu thông báo vào dropdown chuông trên Header để admin bấm vào xem được ngay
+          if (dropList && dataNotif.data.length > 0) {
+            dropList.innerHTML = dataNotif.data.map(n => `
+              <div class="p-3 ${n.isRead ? 'bg-slate-50' : 'bg-brand-50/70 border border-brand-200'} rounded-xl transition-colors">
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-bold text-slate-900">${n.title} #${n.orderFormId}</p>
+                  <span class="text-[10px] text-slate-400">${new Date(n.createdAt).toLocaleTimeString('vi-VN')}</span>
+                </div>
+                <p class="text-xs text-slate-600 mt-1">${n.customerName} (${n.phone}) - ${Number(n.totalPrice || 0).toLocaleString('vi-VN')}đ</p>
+              </div>
+            `).join('');
+          }
+
+          if (dataNotif.data.length === 0) {
+            list.innerHTML = '<p class="text-xs text-slate-400">Chưa có thông báo đơn hàng mới nào.</p>';
+          } else {
+            list.innerHTML = dataNotif.data.map(n => `
+              <div class="p-3.5 rounded-xl border ${n.isRead ? 'bg-slate-50 border-slate-200' : 'bg-brand-50 border-brand-200'} text-xs sm:text-sm flex justify-between items-center">
+                <div>
+                  <p class="font-bold text-slate-900">${n.title} - #${n.orderFormId}</p>
+                  <p class="text-slate-700">${n.customerName} (${n.phone}) - ${Number(n.totalPrice || 0).toLocaleString('vi-VN')}đ [${n.paymentMethod}]</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">${new Date(n.createdAt).toLocaleTimeString('vi-VN')} - ${n.address}</p>
+                </div>
+                ${!n.isRead ? `<button onclick="markNotificationRead(${n.notificationId})" class="text-xs font-bold text-brand-600 hover:underline">Đã xem</button>` : ''}
+              </div>
+            `).join('');
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi load notif:', err);
+      }
+
+      // 3. Load Orders Table: Chi tiết từng đơn hàng cho Admin
+      try {
+        const resOrders = await fetch('/api/orders', { headers: tokenHeader });
+        const dataOrders = await resOrders.json();
+        if (dataOrders.success && dataOrders.data) {
+          const tbody = document.getElementById('adminOrdersTableBody');
+          tbody.innerHTML = dataOrders.data.map(o => {
+            let badge = 'bg-amber-100 text-amber-800';
+            if (o.statusId === 2) badge = 'bg-blue-100 text-blue-800';
+            else if (o.statusId === 3) badge = 'bg-emerald-100 text-emerald-800';
+            else if (o.statusId === 4) badge = 'bg-red-100 text-red-800';
+
+            return `
+              <tr class="hover:bg-slate-50 transition-colors">
+                <td class="py-3.5 px-3 font-black text-brand-600 whitespace-nowrap">#${o.orderFormId}</td>
+                <td class="py-3.5 px-3 font-bold text-slate-900 whitespace-nowrap">${o.customerName}</td>
+                <td class="py-3.5 px-3 whitespace-nowrap">${o.phone}</td>
+                <td class="py-3.5 px-3 max-w-xs truncate" title="${o.address}">${o.address}</td>
+                <td class="py-3.5 px-3 font-semibold text-slate-900">${o.bookName} (x${o.quantity})</td>
+                <td class="py-3.5 px-3 font-black text-brand-600 whitespace-nowrap">${o.totalPrice.toLocaleString('vi-VN')}đ</td>
+                <td class="py-3.5 px-3 whitespace-nowrap"><span class="px-2.5 py-1 rounded bg-slate-100 text-[11px] font-bold">${o.paymentMethod}</span></td>
+                <td class="py-3.5 px-3 whitespace-nowrap text-center">
+                  <span class="inline-flex items-center justify-center px-3.5 py-1.5 rounded-full font-bold text-xs whitespace-nowrap shadow-xs ${badge}">
+                    ${o.statusName}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 text-right whitespace-nowrap">
+                  <select onchange="updateOrderStatus(${o.orderFormId}, this.value)" class="text-xs p-2 rounded-xl border border-slate-300 bg-white font-bold text-slate-800 shadow-sm focus:ring-2 focus:ring-brand-500">
+                    <option value="">-- Chọn duyệt --</option>
+                    <option value="1" ${o.statusId === 1 ? 'selected' : ''}>1. Chờ xác nhận</option>
+                    <option value="2" ${o.statusId === 2 ? 'selected' : ''}>2. Duyệt & Đang giao hàng</option>
+                    <option value="3" ${o.statusId === 3 ? 'selected' : ''}>3. Hoàn thành</option>
+                    <option value="4" ${o.statusId === 4 ? 'selected' : ''}>4. Hủy đơn</option>
+                  </select>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error('Lỗi load admin orders:', err);
+      }
+
+      // 4. Load Books Table để Admin đổi giá / xóa
+      loadAdminBooks();
+    }
+
+    async function loadAdminBooks() {
+      try {
+        const response = await fetch('/api/books');
+        const res = await response.json();
+        const list = (res && res.success && res.data && res.data.length > 0) ? res.data : fallbackBooks;
+
+        const tbody = document.getElementById('adminBooksTableBody');
+        tbody.innerHTML = list.map(b => `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="py-3.5 px-3 font-bold text-slate-400">#${b.bookId}</td>
+            <td class="py-3.5 px-3">
+              <img src="${resolveImgUrl(b.imageUrl || './images/nha-gia-kim.png')}" class="w-10 h-14 object-cover rounded shadow-sm" onerror="this.src='./images/nha-gia-kim.png'">
+            </td>
+            <td class="py-3.5 px-3 font-bold text-slate-900">${b.bookName}</td>
+            <td class="py-3.5 px-3">${b.category || 'Văn học'}</td>
+            <td class="py-3.5 px-3 font-black text-brand-600">${b.price.toLocaleString('vi-VN')}đ</td>
+            <td class="py-3.5 px-3 text-right space-x-2">
+              <button onclick="openEditBookModal(${b.bookId})" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700">Sửa & Đổi Giá</button>
+              <button onclick="deleteBook(${b.bookId})" class="px-3 py-1.5 rounded-xl bg-red-100 hover:bg-red-200 text-xs font-bold text-red-700">Xóa</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Lỗi load admin books:', err);
+      }
+    }
+
+    async function updateOrderStatus(orderId, statusId) {
+      if (!statusId) return;
+      if (!currentUser || currentUser.role !== 'Admin') return;
+
+      try {
+        const response = await fetch(`/api/orders/${orderId}/status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentUser.token}`
+          },
+          body: JSON.stringify({ statusId: parseInt(statusId) })
+        });
+        const res = await response.json();
+        if (response.ok && res.success) {
+          showToast('success', 'Cập nhật trạng thái', `Đã cập nhật trạng thái đơn #${orderId}! Thông báo đã gửi tới khách.`);
+          loadAdminDashboard();
+        } else {
+          showToast('error', 'Lỗi', res.message || 'Không thể đổi trạng thái');
+        }
+      } catch (err) {
+        showToast('error', 'Lỗi kết nối', 'Lỗi kết nối máy chủ.');
+      }
+    }
+
+    async function markNotificationRead(id) {
+      if (!currentUser) return;
+      try {
+        await fetch(`/api/admin/notifications/${id}/read`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${currentUser.token}` }
+        });
+        loadAdminDashboard();
+      } catch (err) {}
+    }
+
+    function openAddBookModal() {
+      document.getElementById('bookModalTitle').textContent = 'Thêm Sách Mới';
+      document.getElementById('adminBookId').value = '0';
+      document.getElementById('formAdminBook').reset();
+      document.getElementById('bookModal').classList.remove('hidden');
+    }
+
+    function openEditBookModal(id) {
+      const source = (booksData && booksData.length > 0) ? booksData : fallbackBooks;
+      const book = source.find(b => b.bookId === id);
+      if (!book) return;
+
+      document.getElementById('bookModalTitle').textContent = 'Sửa Thông Tin & Đổi Giá Sách';
+      document.getElementById('adminBookId').value = book.bookId;
+      document.getElementById('adminBookName').value = book.bookName;
+      document.getElementById('adminBookCategory').value = book.category || '';
+      document.getElementById('adminBookPrice').value = book.price;
+      document.getElementById('adminBookImageUrl').value = book.imageUrl || '';
+      document.getElementById('adminBookAuthor').value = book.detailAuthor || '';
+      document.getElementById('adminBookReview').value = book.titleReview || '';
+
+      document.getElementById('bookModal').classList.remove('hidden');
+    }
+
+    function closeBookModal() {
+      document.getElementById('bookModal').classList.add('hidden');
+    }
+
+    async function handleSaveBook(e) {
+      e.preventDefault();
+      if (!currentUser || currentUser.role !== 'Admin') return;
+
+      const bookId = parseInt(document.getElementById('adminBookId').value) || 0;
+      const bookName = document.getElementById('adminBookName').value.trim();
+      const category = document.getElementById('adminBookCategory').value.trim();
+      const price = parseFloat(document.getElementById('adminBookPrice').value) || 0;
+      const imageUrl = document.getElementById('adminBookImageUrl').value.trim();
+      const detailAuthor = document.getElementById('adminBookAuthor').value.trim();
+      const titleReview = document.getElementById('adminBookReview').value.trim();
+
+      const payload = { bookName, category, price, imageUrl, detailAuthor, titleReview };
+
+      try {
+        let url = '/api/books';
+        let method = 'POST';
+
+        if (bookId > 0) {
+          url = `/api/books/${bookId}`;
+          method = 'PUT';
+        }
+
+        const response = await fetch(url, {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentUser.token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const res = await response.json();
+        if (response.ok && res.success) {
+          showToast('success', 'Kho Sách', 'Lưu sách và cập nhật giá thành công!');
+          closeBookModal();
+          loadAdminDashboard();
+          loadBooksFromApi();
+        } else {
+          showToast('error', 'Lỗi', res.message || 'Lỗi lưu sách');
+        }
+      } catch (err) {
+        showToast('error', 'Lỗi kết nối', 'Lỗi kết nối khi lưu sách.');
+      }
+    }
+
+    function deleteBook(id) {
+      if (!currentUser || currentUser.role !== 'Admin') return;
+      openDialogModal({
+        type: 'danger',
+        title: 'Xác Nhận Xóa Sách',
+        message: `Bạn có chắc chắn muốn xóa cuốn sách #${id} này khỏi hệ thống cơ sở dữ liệu không? Thao tác này không thể hoàn tác.`,
+        confirmText: 'Xác Nhận Xóa',
+        cancelText: 'Hủy Bỏ',
+        onConfirm: async () => {
+          try {
+            const response = await fetch(`/api/books/${id}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${currentUser.token}` }
+            });
+            const res = await response.json();
+            if (response.ok && res.success) {
+              showToast('success', 'Xóa sách', 'Đã xóa sách thành công!');
+              loadAdminDashboard();
+              loadBooksFromApi();
+            } else {
+              showToast('error', 'Lỗi', res.message || 'Lỗi xóa sách');
+            }
+          } catch (err) {
+            showToast('error', 'Lỗi kết nối', 'Lỗi kết nối máy chủ.');
+          }
+        }
+      });
+    }
+
+    // 10. REAL-TIME SIGNALR HUB ĐỒNG BỘ 2 CHIỀU (USER & ADMIN)
+    let globalSignalR = null;
+
+    function setupSignalR() {
+      if (typeof signalR === 'undefined') {
+        console.warn("Thư viện SignalR chưa nạp.");
+        return;
+      }
+
+      if (globalSignalR && globalSignalR.state === signalR.HubConnectionState.Connected) {
+        return;
+      }
+
+      const hubUrl = (window.location.port === '5500' || window.location.hostname === '127.0.0.1')
+        ? 'https://localhost:7230/hub/notifications'
+        : '/hub/notifications';
+
+      globalSignalR = new signalR.HubConnectionBuilder()
+        .withUrl(hubUrl, {
+          skipNegotiation: false,
+          transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling
+        })
+        .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+        .build();
+
+      // SỰ KIỆN 1: USER ĐẶT SÁCH -> ADMIN NHẬN THÔNG BÁO ASYNC TỨC THÌ
+      globalSignalR.on("ReceiveNewOrderNotification", (notif) => {
+        try {
+          console.log("⚡ [SignalR] Nhận thông báo đơn hàng mới:", notif);
+          if (!notif) return;
+
+          // ⚠️ CHỈ TÀI KHOẢN ADMIN ĐÃ ĐĂNG NHẬP MỚI ĐƯỢC NHẬN VÀ HIỂN THỊ THÔNG BÁO ĐƠN HÀNG MỚI!
+          // KHÁCH VÀ USER THƯỜNG KHÔNG BAO GIỜ HIỂN THỊ THÔNG BÁO NÀY!
+          if (!currentUser || currentUser.role !== 'Admin') {
+            return;
+          }
+
+          const customer = notif.customerName || notif.CustomerName || 'Khách hàng';
+          const orderId = notif.orderFormId || notif.OrderFormId || '';
+          const phone = notif.phone || notif.Phone || '';
+          const rawPrice = notif.totalPrice !== undefined ? notif.totalPrice : (notif.TotalPrice !== undefined ? notif.TotalPrice : 0);
+          const priceFormatted = Number(rawPrice).toLocaleString('vi-VN') + 'đ';
+
+          // Khi có đơn hàng mới tinh đến -> Reset trạng thái đã xem để chuông báo sáng số mới
+          sessionStorage.removeItem('notifications_viewed');
+
+          // Hiện toast cho Admin
+          showToast('info', '🔔 ĐƠN HÀNG MỚI!', `Khách ${customer} vừa đặt đơn #${orderId} (${priceFormatted})`);
+          
+          // Thêm vào chuông thông báo
+          addNotificationToDropdown(`🛒 Khách ${customer} đặt #${orderId}: ${priceFormatted}`);
+
+          // Banner thông báo trên đầu chỉ cho Admin
+          const banner = document.getElementById('realtimeNoticeBanner');
+          const text = document.getElementById('realtimeNoticeText');
+          if (banner && text) {
+            text.innerHTML = `Khách hàng <strong>${customer}</strong> (${phone}) vừa đặt mua đơn #${orderId} (${priceFormatted})!`;
+            banner.classList.remove('hidden');
+          }
+
+          // Cập nhật lại danh sách đơn hàng Admin nếu đang xem
+          loadAdminDashboard();
+        } catch (err) {
+          console.error("Lỗi callback SignalR ReceiveNewOrderNotification:", err);
+        }
+      });
+
+      // SỰ KIỆN 2: ADMIN DUYỆT ĐƠN / CẬP NHẬT TRẠNG THÁI -> USER NHẬN THÔNG BÁO TỨC THÌ
+      globalSignalR.on("ReceiveOrderStatusUpdated", (notice) => {
+        try {
+          console.log("⚡ [SignalR] Đơn hàng cập nhật trạng thái:", notice);
+          if (!notice) return;
+
+          // ⚠️ CHỈ USER ĐÃ ĐĂNG NHẬP MỚI NHẬN THÔNG BÁO CẬP NHẬT ĐƠN HÀNG CỦA MÌNH!
+          if (!currentUser) return;
+
+          sessionStorage.removeItem('notifications_viewed');
+
+          const orderId = notice.orderFormId || notice.OrderFormId || '';
+          const statusName = notice.statusName || notice.StatusName || '';
+          const msg = notice.message || notice.Message || `Đơn #${orderId} đổi sang "${statusName}"`;
+
+          // Hiện Toast cho User
+          showToast('success', '📦 CẬP NHẬT ĐƠN HÀNG', msg);
+
+          // Thêm vào chuông thông báo
+          addNotificationToDropdown(`📦 Đơn #${orderId}: Trạng thái đổi sang "${statusName}"`);
+
+          // Cập nhật thẻ đơn hàng trên màn hình nếu User đang xem "Đơn Hàng Của Tôi"
+          const statusEl = document.getElementById(`order-status-text-${orderId}`);
+          if (statusEl) {
+            statusEl.textContent = statusName;
+          }
+
+          const viewOrders = document.getElementById('view-orders');
+          if (viewOrders && !viewOrders.classList.contains('hidden')) {
+            loadUserOrders();
+          }
+        } catch (err) {
+          console.error("Lỗi callback SignalR ReceiveOrderStatusUpdated:", err);
+        }
+      });
+
+      globalSignalR.start()
+        .then(() => {
+          console.log("✅ Đã kết nối SignalR Hub 2 chiều thành công!");
+          globalSignalR.invoke("JoinAdminGroup").catch(() => {});
+        })
+        .catch(err => {
+          console.warn("SignalR Hub kết nối lại sau:", err);
+          setTimeout(setupSignalR, 3000);
+        });
+    }
+
+    // 11. TOAST NOTIFICATION & CHUÔNG THÔNG BÁO HỆ THỐNG
+    function showToast(type, title, message) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `p-4 rounded-2xl shadow-2xl border text-sm flex items-start gap-3 pointer-events-auto toast-animate bg-white ${
+        type === 'success' ? 'border-emerald-300 text-slate-800' :
+        type === 'error' ? 'border-red-300 text-slate-800' :
+        type === 'warning' ? 'border-amber-300 text-slate-800' : 'border-brand-300 text-slate-800'
+      }`;
+
+      let iconHtml = '<i class="fa-solid fa-circle-check text-emerald-500 text-lg mt-0.5"></i>';
+      if (type === 'error') iconHtml = '<i class="fa-solid fa-circle-xmark text-red-500 text-lg mt-0.5"></i>';
+      else if (type === 'warning') iconHtml = '<i class="fa-solid fa-triangle-exclamation text-amber-500 text-lg mt-0.5"></i>';
+      else if (type === 'info') iconHtml = '<i class="fa-solid fa-bell text-brand-600 text-lg mt-0.5"></i>';
+
+      toast.innerHTML = `
+        ${iconHtml}
+        <div class="flex-1 min-w-0">
+          <h5 class="font-extrabold text-sm text-slate-900 leading-tight">${title}</h5>
+          <p class="text-xs text-slate-600 mt-0.5 leading-relaxed">${message}</p>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">&times;</button>
+      `;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 5000);
+    }
+
+    function addNotificationToDropdown(text) {
+      notificationsList.unshift({ text, time: new Date().toLocaleTimeString('vi-VN') });
+      const badge = document.getElementById('bellBadge');
+      badge.textContent = notificationsList.length;
+      badge.classList.remove('hidden');
+
+      const listEl = document.getElementById('notifDropdownList');
+      listEl.innerHTML = notificationsList.map(n => `
+        <div class="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors">
+          <p class="text-xs font-bold text-slate-900">${n.text}</p>
+          <span class="text-[10px] text-slate-400 mt-1 block">${n.time}</span>
+        </div>
+      `).join('');
+    }
+
+    async function toggleNotificationDropdown() {
+      const drop = document.getElementById('notifDropdown');
+      const badge = document.getElementById('bellBadge');
+      const willOpen = drop.classList.contains('hidden');
+      
+      drop.classList.toggle('hidden');
+
+      if (willOpen) {
+        // Đã mở chuông xem thông báo -> TẮT NGAY CHẤM ĐỎ SỐ 1
+        if (badge) {
+          badge.classList.add('hidden');
+          badge.textContent = '0';
+        }
+        sessionStorage.setItem('notifications_viewed', 'true');
+
+        // Nếu là Admin thì đồng thời cập nhật trạng thái đã xem các thông báo đơn hàng
+        if (currentUser && currentUser.role === 'Admin') {
+          try {
+            const resNotif = await fetch('/api/admin/notifications', { 
+              headers: { 'Authorization': `Bearer ${currentUser.token}` } 
+            });
+            const dataNotif = await resNotif.json();
+            if (dataNotif.success && dataNotif.data) {
+              const unread = dataNotif.data.filter(n => !n.isRead);
+              for (const n of unread) {
+                await fetch(`/api/admin/notifications/${n.notificationId}/read`, {
+                  method: 'PUT',
+                  headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    function clearNotifBadge() {
+      notificationsList = [];
+      sessionStorage.setItem('notifications_viewed', 'true');
+      const badge = document.getElementById('bellBadge');
+      if (badge) {
+        badge.classList.add('hidden');
+        badge.textContent = '0';
+      }
+      document.getElementById('notifDropdownList').innerHTML = '<p class="text-center text-xs text-slate-400 py-6">Đã đọc hết thông báo.</p>';
+      document.getElementById('notifDropdown').classList.add('hidden');
+    }
+
+    // 12. FLOATING SCROLL-TO-TOP BUTTON
+    window.addEventListener('scroll', () => {
+      const btn = document.getElementById('btnScrollToTop');
+      if (window.scrollY > 300) {
+        btn.classList.remove('hidden');
+      } else {
+        btn.classList.add('hidden');
+      }
+    });
+
+    // KHỞI ĐỘNG HỆ THỐNG
+    document.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      if (currentUser && currentUser.role === 'Admin') {
+        switchView('admin');
+      } else {
+        switchView('store');
+      }
+      setupSignalR();
+    });
+  </script>
+</body>
+</html>

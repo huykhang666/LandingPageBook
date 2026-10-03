@@ -1,0 +1,11 @@
+using WebApplication1.Models.DTOs;
+
+namespace WebApplication1.Models.Service
+{
+    public interface IAuthService
+    {
+        Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterDto dto);
+        Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginDto dto);
+        Task<ApiResponse<AuthResponseDto>> GetProfileAsync(string username);
+    }
+}

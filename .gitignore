@@ -1,0 +1,31 @@
+## Build & Binary outputs
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio & IDE files
+.vs/
+.vscode/
+*.user
+*.userprefs
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Temporary files & OS generated
+*.tmp
+*.log
+Thumbs.db
+.DS_Store
+
+## Node / NPM (if any)
+node_modules/
+
+## Environment & Secrets
+appsettings.Local.json
+*.env
+
+## Agent / Local Skills
+.agents/
+skills-lock.json
