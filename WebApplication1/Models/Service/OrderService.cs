@@ -33,14 +33,14 @@ namespace WebApplication1.Models.Service
 
         public async Task<ApiResponse<OrderResponseDto>> CreateOrderAsync(CreateOrderDto dto)
         {
-            // 1. Kiểm tra sách có tồn tại không
+            // Kiểm tra sách có tồn tại không
             var book = await _bookRepository.GetByIdAsync(dto.BookId);
             if (book == null)
             {
                 return ApiResponse<OrderResponseDto>.Fail("Sách được chọn không tồn tại trên hệ thống.");
             }
 
-            // 2. Khởi tạo đơn hàng mới với trạng thái mặc định (1: Chờ xác nhận)
+            // Khởi tạo đơn hàng mới 
             var order = new OrderForm
             {
                 CustomerName = dto.CustomerName.Trim(),
@@ -49,8 +49,9 @@ namespace WebApplication1.Models.Service
                 Quantity = dto.Quantity,
                 PaymentMethod = dto.PaymentMethod,
                 BookId = dto.BookId,
-                StatusId = 1, // Mặc định: Chờ xác nhận
-                OrderTime = DateTime.UtcNow
+                StatusId = 1,
+                OrderTime = DateTime.UtcNow,
+                TotalPrice = book.Price * dto.Quantity
             };
 
             await _orderRepository.AddAsync(order);
@@ -58,7 +59,7 @@ namespace WebApplication1.Models.Service
 
             var totalPrice = book.Price * order.Quantity;
 
-            // 3. Tự động lưu thông báo cho Admin vào Database
+            // Tự động lưu thông báo cho Admin vào Database
             var notification = new AdminNotification
             {
                 OrderFormId = order.OrderFormId,
@@ -76,7 +77,6 @@ namespace WebApplication1.Models.Service
             await _notificationRepository.AddAsync(notification);
             await _notificationRepository.SaveAsync();
 
-            // 4. BẮN ASYNC REAL-TIME SIGNALR TỚI TÀI KHOẢN ADMIN
             var notificationDto = new AdminNotificationDto
             {
                 NotificationId = notification.NotificationId,
@@ -94,16 +94,14 @@ namespace WebApplication1.Models.Service
 
             try
             {
-                // Bắn thông báo thời gian thực tới tất cả client admin đang kết nối
                 await _hubContext.Clients.All.SendAsync("ReceiveNewOrderNotification", notificationDto);
             }
             catch (Exception ex)
             {
-                // Ghi nhận lỗi nhưng không để ảnh hưởng tiến trình tạo đơn
                 Console.WriteLine($"[SignalR Notification Error]: {ex.Message}");
             }
 
-            // 5. Trả về thông tin đơn hàng vừa tạo cho người dùng
+            // Trả về thông tin đơn hàng vừa tạo cho người dùng
             var response = new OrderResponseDto
             {
                 OrderFormId = order.OrderFormId,
@@ -116,6 +114,7 @@ namespace WebApplication1.Models.Service
                 BookId = book.BookId,
                 BookName = book.BookName,
                 UnitPrice = book.Price,
+                TotalPrice = order.TotalPrice ?? (book.Price * order.Quantity),
                 StatusId = 1,
                 StatusName = "Chờ xác nhận"
             };
@@ -143,6 +142,7 @@ namespace WebApplication1.Models.Service
                 BookId = order.BookId,
                 BookName = order.Book?.BookName ?? string.Empty,
                 UnitPrice = order.Book?.Price ?? 0,
+                TotalPrice = order.TotalPrice ?? ((order.Book?.Price ?? 0) * order.Quantity),
                 StatusId = order.StatusId,
                 StatusName = order.Status?.StatusName ?? string.Empty
             };
@@ -166,6 +166,7 @@ namespace WebApplication1.Models.Service
                 BookId = order.BookId,
                 BookName = order.Book?.BookName ?? string.Empty,
                 UnitPrice = order.Book?.Price ?? 0,
+                TotalPrice = order.TotalPrice ?? ((order.Book?.Price ?? 0) * order.Quantity),
                 StatusId = order.StatusId,
                 StatusName = order.Status?.StatusName ?? string.Empty
             });
@@ -190,6 +191,7 @@ namespace WebApplication1.Models.Service
                     BookId = order.BookId,
                     BookName = order.Book?.BookName ?? string.Empty,
                     UnitPrice = order.Book?.Price ?? 0,
+                    TotalPrice = order.TotalPrice ?? ((order.Book?.Price ?? 0) * order.Quantity),
                     StatusId = order.StatusId,
                     StatusName = order.Status?.StatusName ?? string.Empty
                 });
@@ -197,7 +199,7 @@ namespace WebApplication1.Models.Service
             return ApiResponse<IEnumerable<OrderResponseDto>>.Ok(userOrders);
         }
 
-        public async Task<ApiResponse<bool>> UpdateOrderStatusAsync(int orderId, int statusId)
+        public async Task<ApiResponse<bool>> UpdateOrderStatusAsync(int orderId, int statusId, decimal? newTotalPrice = null)
         {
             var order = await _orderRepository.GetByIdAsync(orderId);
             if (order == null)
@@ -212,6 +214,10 @@ namespace WebApplication1.Models.Service
             }
 
             order.StatusId = statusId;
+            if (newTotalPrice.HasValue && newTotalPrice.Value >= 0)
+            {
+                order.TotalPrice = newTotalPrice.Value;
+            }
             _orderRepository.Update(order);
             await _orderRepository.SaveAsync();
 
@@ -225,6 +231,7 @@ namespace WebApplication1.Models.Service
                     statusName = status.StatusName,
                     customerName = order.CustomerName,
                     phone = order.Phone,
+                    totalPrice = order.TotalPrice ?? 0,
                     message = $"Đơn hàng #{order.OrderFormId} của bạn đã được cập nhật sang trạng thái: '{status.StatusName}'."
                 };
                 await _hubContext.Clients.All.SendAsync("ReceiveOrderStatusUpdated", updateNotice);
@@ -234,7 +241,7 @@ namespace WebApplication1.Models.Service
                 Console.WriteLine($"[SignalR Status Update Error]: {ex.Message}");
             }
 
-            return ApiResponse<bool>.Ok(true, "Cập nhật trạng thái đơn hàng thành công.");
+            return ApiResponse<bool>.Ok(true, "Cập nhật đơn hàng thành công.");
         }
 
         // ĐẶC QUYỀN ADMIN: Xem thống kê tổng quan
@@ -250,12 +257,12 @@ namespace WebApplication1.Models.Service
             // Doanh thu từ các đơn hoàn thành (StatusId == 3)
             var totalRevenue = orderList
                 .Where(o => o.StatusId == 3)
-                .Sum(o => (o.Book?.Price ?? 0) * o.Quantity);
+                .Sum(o => o.TotalPrice ?? ((o.Book?.Price ?? 0) * o.Quantity));
 
             // Doanh thu trong ngày hôm nay (từ các đơn hoàn thành hôm nay, hoặc đơn đặt hôm nay)
             var todayRevenue = orderList
                 .Where(o => o.OrderTime.Date == today && o.StatusId != 4)
-                .Sum(o => (o.Book?.Price ?? 0) * o.Quantity);
+                .Sum(o => o.TotalPrice ?? ((o.Book?.Price ?? 0) * o.Quantity));
 
             var todayOrders = orderList.Count(o => o.OrderTime.Date == today);
 

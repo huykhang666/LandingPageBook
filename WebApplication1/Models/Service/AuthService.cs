@@ -31,7 +31,7 @@ namespace WebApplication1.Models.Service
             var account = new Account
             {
                 Username = dto.Username.Trim().ToLower(),
-                Password = dto.Password, // Lưu ý: trong thực tế nên hash bằng BCrypt hoặc PBKDF2
+                Password = dto.Password, 
                 FullName = dto.FullName.Trim(),
                 Role = "User"
             };

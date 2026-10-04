@@ -91,7 +91,7 @@ namespace WebApplication1.Controllers
                 return BadRequest(ApiResponse<bool>.Fail(errors));
             }
 
-            var result = await _orderService.UpdateOrderStatusAsync(id, dto.StatusId);
+            var result = await _orderService.UpdateOrderStatusAsync(id, dto.StatusId, dto.TotalPrice);
             if (!result.Success)
             {
                 return BadRequest(result);

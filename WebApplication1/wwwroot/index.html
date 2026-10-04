@@ -219,8 +219,8 @@
           </button>
 
           <!-- Khi đã đăng nhập (User / Admin) -->
-          <div id="userProfileMenu" class="hidden relative group">
-            <button class="h-11 flex items-center gap-2.5 bg-white hover:bg-slate-50 px-3.5 rounded-xl border border-slate-200 shadow-sm hover:border-brand-300 transition-all">
+          <div id="userProfileMenu" class="hidden relative" onmouseenter="showUserDropdown()">
+            <button onclick="toggleUserDropdown(event)" class="h-11 flex items-center gap-2.5 bg-white hover:bg-slate-50 px-3.5 rounded-xl border border-slate-200 shadow-sm hover:border-brand-300 transition-all cursor-pointer">
               <span id="userAvatarBadge" class="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 font-extrabold text-xs flex items-center justify-center flex-shrink-0">
                 <i class="fa-solid fa-user"></i>
               </span>
@@ -230,25 +230,25 @@
               </div>
               <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
             </button>
-            <!-- Dropdown -->
-            <div class="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 hidden group-hover:block transition-all z-50">
+            <!-- Dropdown: Giữ nguyên khi rê chuột, chỉ đóng khi click lại avatar hoặc click vùng ngoài -->
+            <div id="userProfileDropdown" class="hidden absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 transition-all z-50 animate-fade-in-up">
               <div class="px-4 py-2 border-b border-slate-100 text-xs text-slate-400">
                 Vai trò: <strong id="dropRoleLabel" class="text-slate-900 font-bold">User</strong>
               </div>
               <div id="userOrdersDropdownLink">
-                <a href="javascript:void(0)" onclick="switchView('orders')" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-brand-600 font-semibold flex items-center gap-2">
+                <a href="javascript:void(0)" onclick="switchView('orders'); hideUserDropdown();" class="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-brand-600 font-semibold flex items-center gap-2">
                   <i class="fa-solid fa-clock-rotate-left text-slate-400"></i>
                   <span>Đơn Hàng Của Tôi</span>
                 </a>
               </div>
               <div id="adminDropdownLink" class="hidden">
-                <a href="javascript:void(0)" onclick="switchView('admin')" class="block px-4 py-2.5 text-sm text-amber-700 font-bold hover:bg-amber-50 flex items-center gap-2">
+                <a href="javascript:void(0)" onclick="switchView('admin'); hideUserDropdown();" class="block px-4 py-2.5 text-sm text-amber-700 font-bold hover:bg-amber-50 flex items-center gap-2">
                   <i class="fa-solid fa-shield-halved text-amber-600"></i>
                   <span>Bảng Quản Trị Admin</span>
                 </a>
               </div>
               <hr class="my-1 border-slate-100">
-              <button onclick="logout()" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2">
+              <button onclick="logout(); hideUserDropdown();" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 cursor-pointer">
                 <i class="fa-solid fa-arrow-right-from-bracket"></i>
                 <span>Đăng Xuất</span>
               </button>
@@ -2343,7 +2343,12 @@
                 <td class="py-3.5 px-3 whitespace-nowrap">${o.phone}</td>
                 <td class="py-3.5 px-3 max-w-xs truncate" title="${o.address}">${o.address}</td>
                 <td class="py-3.5 px-3 font-semibold text-slate-900">${o.bookName} (x${o.quantity})</td>
-                <td class="py-3.5 px-3 font-black text-brand-600 whitespace-nowrap">${o.totalPrice.toLocaleString('vi-VN')}đ</td>
+                <td class="py-3.5 px-3 whitespace-nowrap">
+                  <span class="font-black text-brand-600">${o.totalPrice.toLocaleString('vi-VN')}đ</span>
+                  <button onclick="promptEditOrderPrice(${o.orderFormId}, ${o.totalPrice}, ${o.statusId})" class="ml-1.5 px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-brand-50 text-slate-500 hover:text-brand-600 border border-slate-200 transition-colors text-xs font-semibold" title="Bấm để cập nhật giá tiền">
+                    <i class="fa-solid fa-pen-to-square text-[11px] mr-1"></i>Sửa giá
+                  </button>
+                </td>
                 <td class="py-3.5 px-3 whitespace-nowrap"><span class="px-2.5 py-1 rounded bg-slate-100 text-[11px] font-bold">${o.paymentMethod}</span></td>
                 <td class="py-3.5 px-3 whitespace-nowrap text-center">
                   <span class="inline-flex items-center justify-center px-3.5 py-1.5 rounded-full font-bold text-xs whitespace-nowrap shadow-xs ${badge}">
@@ -2398,25 +2403,57 @@
       }
     }
 
+    async function promptEditOrderPrice(orderId, currentPrice, currentStatusId) {
+      if (!currentUser || currentUser.role !== 'Admin') return;
+      const { value: newPrice } = await Swal.fire({
+        title: `Cập nhật giá đơn hàng #${orderId}`,
+        text: 'Nhập số tiền mới cho đơn hàng (VNĐ):',
+        input: 'number',
+        inputValue: currentPrice,
+        showCancelButton: true,
+        confirmButtonText: 'Lưu cập nhật giá',
+        cancelButtonText: 'Hủy bỏ',
+        confirmButtonColor: '#2563eb',
+        inputValidator: (value) => {
+          if (!value || isNaN(value) || Number(value) < 0) {
+            return 'Vui lòng nhập giá tiền hợp lệ (>= 0)!';
+          }
+        }
+      });
+
+      if (newPrice !== undefined && newPrice !== null && newPrice !== '') {
+        await updateOrderStatusAndPrice(orderId, currentStatusId, parseFloat(newPrice));
+      }
+    }
+
     async function updateOrderStatus(orderId, statusId) {
+      await updateOrderStatusAndPrice(orderId, statusId, null);
+    }
+
+    async function updateOrderStatusAndPrice(orderId, statusId, newTotalPrice) {
       if (!statusId) return;
       if (!currentUser || currentUser.role !== 'Admin') return;
 
       try {
+        const payload = { statusId: parseInt(statusId) };
+        if (newTotalPrice !== null && newTotalPrice !== undefined) {
+          payload.totalPrice = parseFloat(newTotalPrice);
+        }
+
         const response = await fetch(`/api/orders/${orderId}/status`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${currentUser.token}`
           },
-          body: JSON.stringify({ statusId: parseInt(statusId) })
+          body: JSON.stringify(payload)
         });
         const res = await response.json();
         if (response.ok && res.success) {
-          showToast('success', 'Cập nhật trạng thái', `Đã cập nhật trạng thái đơn #${orderId}! Thông báo đã gửi tới khách.`);
+          showToast('success', 'Cập nhật thành công', `Đã cập nhật đơn #${orderId}! Trạng thái và giá tiền đã được đồng bộ lên hệ thống.`);
           loadAdminDashboard();
         } else {
-          showToast('error', 'Lỗi', res.message || 'Không thể đổi trạng thái');
+          showToast('error', 'Lỗi', res.message || 'Không thể cập nhật đơn');
         }
       } catch (err) {
         showToast('error', 'Lỗi kết nối', 'Lỗi kết nối máy chủ.');
@@ -2743,6 +2780,47 @@
       document.getElementById('notifDropdownList').innerHTML = '<p class="text-center text-xs text-slate-400 py-6">Đã đọc hết thông báo.</p>';
       document.getElementById('notifDropdown').classList.add('hidden');
     }
+
+    // 11. XỬ LÝ DROPDOWN AVATAR (GIỮ NGUYÊN KHI RÊ CHUỘT, ĐÓNG KHI CLICK LẠI HOẶC CLICK NGOÀI)
+    function showUserDropdown() {
+      const drop = document.getElementById('userProfileDropdown');
+      if (drop) drop.classList.remove('hidden');
+    }
+
+    function toggleUserDropdown(e) {
+      if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      const drop = document.getElementById('userProfileDropdown');
+      if (drop) drop.classList.toggle('hidden');
+    }
+
+    function hideUserDropdown() {
+      const drop = document.getElementById('userProfileDropdown');
+      if (drop) drop.classList.add('hidden');
+    }
+
+    // Tự động đóng Popup khi click ra bất kỳ vùng nào khác
+    document.addEventListener('click', (e) => {
+      // 1. Đóng menu Avatar nếu click ra ngoài
+      const userMenu = document.getElementById('userProfileMenu');
+      const userDrop = document.getElementById('userProfileDropdown');
+      if (userMenu && userDrop && !userDrop.classList.contains('hidden')) {
+        if (!userMenu.contains(e.target)) {
+          userDrop.classList.add('hidden');
+        }
+      }
+
+      // 2. Đóng menu Chuông thông báo nếu click ra ngoài
+      const bellWrap = document.getElementById('bellWrapper');
+      const notifDrop = document.getElementById('notifDropdown');
+      if (bellWrap && notifDrop && !notifDrop.classList.contains('hidden')) {
+        if (!bellWrap.contains(e.target)) {
+          notifDrop.classList.add('hidden');
+        }
+      }
+    });
 
     // 12. FLOATING SCROLL-TO-TOP BUTTON
     window.addEventListener('scroll', () => {

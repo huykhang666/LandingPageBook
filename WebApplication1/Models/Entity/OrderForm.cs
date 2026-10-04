@@ -9,6 +9,7 @@ namespace WebApplication1.Models.Entity
         public int Quantity { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
         public DateTime OrderTime { get; set; } = DateTime.UtcNow;
+        public decimal? TotalPrice { get; set; }
 
         // Foreign keys
         public int BookId { get; set; }

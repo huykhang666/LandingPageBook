@@ -6,5 +6,7 @@ namespace WebApplication1.Models.DTOs
     {
         [Required(ErrorMessage = "Vui lòng chọn trạng thái mới")]
         public int StatusId { get; set; }
+
+        public decimal? TotalPrice { get; set; }
     }
 }

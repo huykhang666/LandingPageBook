@@ -17,9 +17,7 @@ namespace WebApplication1.Controllers
             _authService = authService;
         }
 
-        /// <summary>
-        /// Đăng ký tài khoản người dùng mới (Role mặc định: User)
-        /// </summary>
+        /// Đăng ký tài khoản người dùng mới 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
@@ -38,9 +36,7 @@ namespace WebApplication1.Controllers
             return Ok(result);
         }
 
-        /// <summary>
-        /// Đăng nhập tài khoản (Admin hoặc User) -> Nhận JWT Token
-        /// </summary>
+        /// Đăng nhập tài khoản 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {

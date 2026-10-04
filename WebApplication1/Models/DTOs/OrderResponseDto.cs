@@ -13,7 +13,7 @@ namespace WebApplication1.Models.DTOs
         public int BookId { get; set; }
         public string BookName { get; set; } = string.Empty;
         public decimal UnitPrice { get; set; }
-        public decimal TotalPrice => UnitPrice * Quantity;
+        public decimal TotalPrice { get; set; }
 
         public int StatusId { get; set; }
         public string StatusName { get; set; } = string.Empty;

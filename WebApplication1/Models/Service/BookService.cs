@@ -66,7 +66,7 @@ namespace WebApplication1.Models.Service
             book.Category = dto.Category;
             book.Title = dto.Title;
             book.Subtitle = dto.Subtitle;
-            book.Price = dto.Price; // Cập nhật giá
+            book.Price = dto.Price; 
             if (!string.IsNullOrEmpty(dto.ImageUrl)) book.ImageUrl = dto.ImageUrl;
             book.DetailAuthor = dto.DetailAuthor;
             book.InformationAuthor = dto.InformationAuthor;
